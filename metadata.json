@@ -1,0 +1,8 @@
+{
+  "name": "منارة الخامسة — منصة التعليم التفاعلية",
+  "description": "منصة تعليمية تفاعلية لتلاميذ السنة الخامسة ابتدائي وفق المنهج التونسي، تجمع بين التجارب العلمية والتمارين الممتعة ونظام متابعة التقدم.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
