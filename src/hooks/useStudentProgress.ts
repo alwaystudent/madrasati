@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+import {
+  getRedirectResult,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  User,
+} from 'firebase/auth';
 import { BADGES, LESSONS, LEVELS } from '../data/tunisianCurriculum';
 import { auth, googleProvider } from '../firebase';
 import {
@@ -263,6 +270,34 @@ export function getLevelInfo(points: number): LevelInfo {
   return current;
 }
 
+function formatGoogleAuthError(err: unknown, inIframe = false): string {
+  const code = (err as { code?: string })?.code ?? '';
+  const msg = err instanceof Error ? err.message : '';
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+
+  if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+    return `النطاق الحالي (${host}) غير مضاف ضمن النطاقات المصرّح بها في إعدادات Firebase Authentication (Authorized Domains). أضِف النطاق من لوحة Firebase ثم أعد المحاولة.`;
+  }
+  if (code === 'auth/popup-blocked' || msg.includes('popup-blocked')) {
+    return inIframe
+      ? 'حظر المتصفّح النافذة المنبثقة داخل نافذة المعاينة المدمجة. يُرجى السماح بالنوافذ المنبثقة أو فتح المنصة في تبويب مستقل.'
+      : 'حظر المتصفّح النافذة المنبثقة لتسجيل الدخول. يُرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم المحاولة مجدداً.';
+  }
+  if (code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
+    return 'خيار تسجيل الدخول بحساب Google غير مفعّل في مشروع Firebase الحالي. فعّله من تبويب Sign-in method.';
+  }
+  if (code === 'auth/network-request-failed' || msg.includes('network-request-failed')) {
+    return 'تعذّر الاتصال بخادم المصادقة. تأكّد من اتصالك بالإنترنت أو من عدم حظر نطاقات Google وإعادة المحاولة.';
+  }
+  if (code === 'auth/internal-error' || msg.includes('internal-error')) {
+    return inIframe
+      ? 'تعذّرت المصادقة داخل الإطار المدمج (قد تكون ملفات الارتباط الخارجية أو النوافذ المنبثقة محظورة). افتح المنصة في تبويب متصفح مستقل للمتابعة.'
+      : 'حدث خطأ تقني مؤقّت في خدمة المصادقة. تأكّد من تفعيل ملفات الارتباط (Cookies) وحاول مجدداً.';
+  }
+
+  return `تعذّر تسجيل الدخول بحساب Google${code ? ` (${code})` : ''}. يُرجى السماح بالنوافذ المنبثقة أو فتح المنصة في تبويب مستقل والمحاولة مجدداً.`;
+}
+
 export interface PeerChallengeSubmitInput {
   opponentOwnerId: string;
   opponentStudentId: string;
@@ -484,6 +519,17 @@ export function useStudentProgress() {
     };
   }, [flushCloudSyncNow]);
 
+  // Check if returning from a redirect-based Google sign-in flow
+  useEffect(() => {
+    void getRedirectResult(auth).catch((err) => {
+      const code = (err as { code?: string })?.code ?? '';
+      if (code && !code.includes('no-auth-event')) {
+        setCloudSyncStatus('error');
+        setCloudError(formatGoogleAuthError(err));
+      }
+    });
+  }, []);
+
   // Listen to Firebase Auth state and load students via bounded one-shot cached reads (zero permanent listeners)
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
@@ -664,16 +710,49 @@ export function useStudentProgress() {
   const signInWithGoogle = useCallback(async () => {
     setCloudError(null);
     setCloudSyncStatus('syncing');
+    const inIframe = (() => {
+      try {
+        return window.self !== window.top;
+      } catch {
+        return true;
+      }
+    })();
+
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
+      const code = (err as { code?: string })?.code ?? '';
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('popup-closed-by-user') || msg.includes('cancelled-popup-request')) {
+
+      if (
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        msg.includes('popup-closed-by-user') ||
+        msg.includes('cancelled-popup-request')
+      ) {
         setCloudSyncStatus('local');
         return;
       }
+
+      // If browser blocked the popup and we are in a top-level tab (e.g. Vercel / mobile),
+      // seamlessly fall back to redirect sign-in.
+      if (
+        (code === 'auth/popup-blocked' || msg.includes('popup-blocked')) &&
+        !inIframe
+      ) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectErr) {
+          setCloudSyncStatus('error');
+          setCloudError(formatGoogleAuthError(redirectErr));
+          return;
+        }
+      }
+
+      console.error('Google Sign-In Error:', code || msg, err);
       setCloudSyncStatus('error');
-      setCloudError('تعذّر تسجيل الدخول بحساب Google. يرجى السماح بالنوافذ المنبثقة والمحاولة مجدداً.');
+      setCloudError(formatGoogleAuthError(err, inIframe));
     }
   }, []);
 

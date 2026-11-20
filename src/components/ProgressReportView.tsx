@@ -366,8 +366,16 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
         </div>
 
         {cloudError && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-800">
-            {cloudError}
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-800 space-y-1.5">
+            <p>{cloudError}</p>
+            <a
+              href={typeof window !== 'undefined' ? window.location.href : '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block font-semibold text-sky-800 hover:underline"
+            >
+              فتح المنصة في نافذة متصفّح مستقلة لتسجيل الدخول
+            </a>
           </div>
         )}
 

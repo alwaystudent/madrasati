@@ -37,6 +37,7 @@ interface LeaderboardViewProps {
   peerChallenges: PeerChallengeRecord[];
   leaderboardLoading: boolean;
   hasPendingSync: boolean;
+  cloudError?: string | null;
   onRefreshLeaderboard: (force?: boolean) => Promise<void>;
   onSubmitChallengeResult: (
     input: PeerChallengeSubmitInput
@@ -93,6 +94,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   peerChallenges,
   leaderboardLoading,
   hasPendingSync,
+  cloudError,
   onRefreshLeaderboard,
   onSubmitChallengeResult,
   onSignInWithGoogle,
@@ -579,22 +581,37 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
 
         {/* Prompt to Sign In if Guest */}
         {!authUser && (
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" aria-hidden="true" />
-              <div className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-                أنت تتصفّح حالياً بالوضع المحلي. سجّل الدخول بحساب Google لنشر ترتيبك في قائمة{' '}
-                <strong>{gradeMeta.label}</strong> ومنافسة زملائك من مختلف الولايات التونسية.
+          <div className="space-y-2.5">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                  أنت تتصفّح حالياً بالوضع المحلي. سجّل الدخول بحساب Google لنشر ترتيبك في قائمة{' '}
+                  <strong>{gradeMeta.label}</strong> ومنافسة زملائك من مختلف الولايات التونسية.
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => void onSignInWithGoogle()}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" aria-hidden="true" />
+                دخول Google للانضمام
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => void onSignInWithGoogle()}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <LogIn className="w-4 h-4" aria-hidden="true" />
-              دخول Google للانضمام
-            </button>
+            {cloudError && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-800 space-y-1.5">
+                <p>{cloudError}</p>
+                <a
+                  href={typeof window !== 'undefined' ? window.location.href : '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block font-semibold text-sky-800 hover:underline"
+                >
+                  فتح المنصة في نافذة متصفّح مستقلة لتسجيل الدخول
+                </a>
+              </div>
+            )}
           </div>
         )}
       </div>

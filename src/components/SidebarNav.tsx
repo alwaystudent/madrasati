@@ -40,6 +40,7 @@ interface SidebarNavProps {
   levelInfo: LevelInfo;
   authUser: User | null;
   cloudSyncStatus: CloudSyncStatus;
+  cloudError?: string | null;
   hasPendingSync?: boolean;
   onFlushSyncNow?: () => Promise<void>;
   onSignInWithGoogle: () => Promise<void>;
@@ -55,6 +56,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   levelInfo,
   authUser,
   cloudSyncStatus,
+  cloudError,
   hasPendingSync = false,
   onFlushSyncNow,
   onSignInWithGoogle,
@@ -207,14 +209,29 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
               )}
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => void onSignInWithGoogle()}
-              className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer"
-            >
-              <LogIn className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              حفظ سحابي بحساب Google
-            </button>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => void onSignInWithGoogle()}
+                className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                حفظ سحابي بحساب Google
+              </button>
+              {cloudError && (
+                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-1">
+                  <p>{cloudError}</p>
+                  <a
+                    href={typeof window !== 'undefined' ? window.location.href : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block font-semibold text-sky-800 hover:underline"
+                  >
+                    فتح في تبويب مستقل
+                  </a>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

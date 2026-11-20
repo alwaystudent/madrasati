@@ -365,9 +365,17 @@ export const MainLandingPortal: React.FC<MainLandingPortalProps> = ({
                       </span>
                     </button>
                     {cloudError && (
-                      <p className="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-                        {cloudError}
-                      </p>
+                      <div className="text-xs font-medium text-rose-800 bg-rose-50 border border-rose-200 rounded-xl px-3.5 py-2.5 space-y-2">
+                        <p>{cloudError}</p>
+                        <a
+                          href={typeof window !== 'undefined' ? window.location.href : '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-semibold text-sky-800 hover:underline"
+                        >
+                          فتح المنصة في نافذة متصفّح مستقلة لتسجيل الدخول
+                        </a>
+                      </div>
                     )}
                   </div>
                 ) : (

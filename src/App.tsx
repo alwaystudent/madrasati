@@ -156,6 +156,7 @@ export default function App() {
         levelInfo={levelInfo}
         authUser={authUser}
         cloudSyncStatus={cloudSyncStatus}
+        cloudError={cloudError}
         hasPendingSync={hasPendingSync}
         onFlushSyncNow={flushCloudSyncNow}
         onSignInWithGoogle={signInWithGoogle}
@@ -333,6 +334,7 @@ export default function App() {
                 peerChallenges={peerChallenges}
                 leaderboardLoading={leaderboardLoading}
                 hasPendingSync={hasPendingSync}
+                cloudError={cloudError}
                 onRefreshLeaderboard={refreshLeaderboard}
                 onSubmitChallengeResult={submitPeerChallengeResult}
                 onSignInWithGoogle={signInWithGoogle}
