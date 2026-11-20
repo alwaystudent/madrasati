@@ -5,6 +5,7 @@ import {
   BookOpen,
   Calculator,
   CheckCircle2,
+  FileText,
   Flame,
   FlaskConical,
   Languages,
@@ -38,6 +39,7 @@ interface LearningPathwayHomeProps {
   onOpenPractice: () => void;
   onOpenProgress: () => void;
   onOpenFrenchStudio?: () => void;
+  onOpenReports?: () => void;
 }
 
 export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
@@ -57,6 +59,7 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
   onOpenPractice,
   onOpenProgress,
   onOpenFrenchStudio,
+  onOpenReports,
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<SubjectId | 'all'>('all');
 
@@ -136,6 +139,18 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
                 style={{ width: `${levelProgressPercent}%` }}
               />
             </div>
+            {onOpenReports && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={onOpenReports}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 hover:text-sky-900 hover:underline underline-offset-4 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                  عرض تقرير التقدّم وحفظ البيانات
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

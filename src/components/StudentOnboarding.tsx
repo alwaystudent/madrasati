@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
+import { User as FirebaseUser } from 'firebase/auth';
 import {
   ArrowLeft,
   BookOpen,
   CheckCircle2,
   Compass,
   GraduationCap,
+  LogIn,
   MapPin,
   Sparkles,
   User,
+  Users,
 } from 'lucide-react';
 import { GRADES, LESSONS, TUNISIAN_GOVERNORATES } from '../data/tunisianCurriculum';
-import { GradeLevel } from '../types/curriculum';
+import { GradeLevel, SavedStudentRecord } from '../types/curriculum';
 
 interface StudentOnboardingProps {
   initialName: string;
   initialGrade: GradeLevel;
   initialGovernorate: string;
+  authUser?: FirebaseUser | null;
+  savedStudents?: SavedStudentRecord[];
+  onSignInWithGoogle?: () => Promise<void>;
+  onSelectSavedStudent?: (studentId: string) => Promise<void>;
   onComplete: (name: string, grade: GradeLevel, governorate: string) => void;
 }
 
@@ -23,6 +30,10 @@ export const StudentOnboarding: React.FC<StudentOnboardingProps> = ({
   initialName,
   initialGrade,
   initialGovernorate,
+  authUser,
+  savedStudents = [],
+  onSignInWithGoogle,
+  onSelectSavedStudent,
   onComplete,
 }) => {
   const [name, setName] = useState(initialName || 'عزيز');
@@ -136,10 +147,42 @@ export const StudentOnboarding: React.FC<StudentOnboardingProps> = ({
             </div>
           </div>
 
-          <div className="pt-2 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100">
-            <div className="text-xs text-slate-500">
-              يمكنك تعديل الاسم أو تغيير السنة الدراسية في أي وقت من لوحة التحكم.
+          {authUser && savedStudents.length > 0 && onSelectSavedStudent && (
+            <div className="p-3.5 rounded-xl bg-sky-50/70 border border-sky-200 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-sky-900">
+                <Users className="w-4 h-4 text-sky-600" aria-hidden="true" />
+                اختر تلميذاً محفوظاً في حسابك
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {savedStudents.map((stu) => (
+                  <button
+                    key={stu.id}
+                    type="button"
+                    onClick={() => void onSelectSavedStudent(stu.id)}
+                    className="px-3 py-1.5 text-xs font-semibold bg-white hover:bg-sky-100 border border-sky-300 text-slate-900 rounded-lg cursor-pointer"
+                  >
+                    {stu.studentName} ({stu.selectedGrade}ème · {stu.points} نقطة)
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100">
+            {!authUser && onSignInWithGoogle ? (
+              <button
+                type="button"
+                onClick={() => void onSignInWithGoogle()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition-colors cursor-pointer"
+              >
+                <LogIn className="w-4 h-4 text-sky-600" aria-hidden="true" />
+                استرجاع أو حفظ التلاميذ بحساب Google
+              </button>
+            ) : (
+              <div className="text-xs text-slate-500">
+                يمكنك تعديل الاسم أو تغيير السنة الدراسية في أي وقت من لوحة التحكم.
+              </div>
+            )}
             <button
               type="submit"
               className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-xs transition-colors whitespace-nowrap cursor-pointer"

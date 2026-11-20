@@ -1,0 +1,467 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Root authenticated parent/teacher/student account controlling saved student profiles.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the account owner.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "activeStudentId": {
+          "type": "string",
+          "description": "Currently selected student profile ID.",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]*$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["ownerId", "activeStudentId", "createdAt", "updatedAt"]
+    },
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "Persisted Tunisian primary student record, curriculum grade, points, badges, and lesson mastery.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owning account.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Student display name.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "selectedGrade": {
+          "type": "integer",
+          "description": "Tunisian primary grade level (3 to 6).",
+          "enum": [3, 4, 5, 6]
+        },
+        "schoolGovernorate": {
+          "type": "string",
+          "description": "Tunisian governorate name.",
+          "minLength": 2,
+          "maxLength": 50
+        },
+        "points": {
+          "type": "integer",
+          "description": "Cumulative motivation points earned."
+        },
+        "streakDays": {
+          "type": "integer",
+          "description": "Consecutive active learning days."
+        },
+        "lastActiveDate": {
+          "type": "string",
+          "description": "ISO date YYYY-MM-DD of last learning activity.",
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "completedLessons": {
+          "type": "object",
+          "description": "Map of lessonId to completion summary (bestScore, totalQuestions, attempts, lastCompletedAt)."
+        },
+        "completedSteps": {
+          "type": "object",
+          "description": "Map of lessonId to array of completed discovery step indices."
+        },
+        "unlockedBadges": {
+          "type": "object",
+          "description": "Map of badgeId to ISO unlock date."
+        },
+        "equippedBadgeId": {
+          "type": "string",
+          "description": "Selected badge ID or empty string.",
+          "maxLength": 60
+        },
+        "expressChallengesCompleted": {
+          "type": "integer",
+          "description": "Number of completed express challenges or mock exams."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "studentName",
+        "selectedGrade",
+        "schoolGovernorate",
+        "points",
+        "streakDays",
+        "lastActiveDate",
+        "completedLessons",
+        "completedSteps",
+        "unlockedBadges",
+        "equippedBadgeId",
+        "expressChallengesCompleted",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudentActivity": {
+      "title": "StudentActivity",
+      "description": "Individual recorded lesson, challenge, French studio, or exam attempt for a saved student.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "lessonId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "grade": {
+          "type": "integer",
+          "enum": [3, 4, 5, 6]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "subjectId": {
+          "type": "string",
+          "enum": ["math", "science", "arabic", "french"],
+          "maxLength": 16
+        },
+        "score": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "pointsEarned": {
+          "type": "integer"
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["lesson", "express", "exam", "french"],
+          "maxLength": 16
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "studentId",
+        "lessonId",
+        "grade",
+        "title",
+        "subjectId",
+        "score",
+        "total",
+        "pointsEarned",
+        "date",
+        "mode",
+        "createdAt"
+      ]
+    },
+    "ProgressReport": {
+      "title": "ProgressReport",
+      "description": "Saved pedagogical progress report snapshot for parents, teachers, and students.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "selectedGrade": {
+          "type": "integer",
+          "enum": [3, 4, 5, 6]
+        },
+        "schoolGovernorate": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50
+        },
+        "periodLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "overallMasteryPercent": {
+          "type": "integer"
+        },
+        "averageAccuracy": {
+          "type": "integer"
+        },
+        "totalPoints": {
+          "type": "integer"
+        },
+        "streakDays": {
+          "type": "integer"
+        },
+        "completedLessonsCount": {
+          "type": "integer"
+        },
+        "totalLessonsCount": {
+          "type": "integer"
+        },
+        "earnedBadgesCount": {
+          "type": "integer"
+        },
+        "mathMastery": {
+          "type": "integer"
+        },
+        "scienceMastery": {
+          "type": "integer"
+        },
+        "arabicMastery": {
+          "type": "integer"
+        },
+        "frenchMastery": {
+          "type": "integer"
+        },
+        "strengthsSummary": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "recommendationsSummary": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "studentId",
+        "studentName",
+        "selectedGrade",
+        "schoolGovernorate",
+        "periodLabel",
+        "overallMasteryPercent",
+        "averageAccuracy",
+        "totalPoints",
+        "streakDays",
+        "completedLessonsCount",
+        "totalLessonsCount",
+        "earnedBadgesCount",
+        "mathMastery",
+        "scienceMastery",
+        "arabicMastery",
+        "frenchMastery",
+        "strengthsSummary",
+        "recommendationsSummary",
+        "createdAt"
+      ]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Zero-PII public grade ranking entry for healthy student peer competition.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "grade": {
+          "type": "integer",
+          "enum": [3, 4, 5, 6]
+        },
+        "governorate": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50
+        },
+        "points": {
+          "type": "integer"
+        },
+        "completedLessonsCount": {
+          "type": "integer"
+        },
+        "streakDays": {
+          "type": "integer"
+        },
+        "challengeWins": {
+          "type": "integer"
+        },
+        "equippedBadgeId": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "studentId",
+        "displayName",
+        "grade",
+        "governorate",
+        "points",
+        "completedLessonsCount",
+        "streakDays",
+        "challengeWins",
+        "equippedBadgeId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PeerChallenge": {
+      "title": "PeerChallenge",
+      "description": "Friendly quick-quiz duel record between peers in the same grade level.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "challengerStudentId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "challengerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "opponentOwnerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "opponentStudentId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "opponentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "grade": {
+          "type": "integer",
+          "enum": [3, 4, 5, 6]
+        },
+        "challengerScore": {
+          "type": "integer"
+        },
+        "opponentTargetScore": {
+          "type": "integer"
+        },
+        "totalQuestions": {
+          "type": "integer"
+        },
+        "challengerWon": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "challengerStudentId",
+        "challengerName",
+        "opponentOwnerId",
+        "opponentStudentId",
+        "opponentName",
+        "grade",
+        "challengerScore",
+        "opponentTargetScore",
+        "totalQuestions",
+        "challengerWon",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Account metadata linking an authenticated parent/student to their saved student profiles."
+    },
+    "/users/{userId}/students/{studentId}": {
+      "schema": { "$ref": "#/entities/StudentProfile" },
+      "description": "Saved student profiles and real-time learning mastery data."
+    },
+    "/users/{userId}/students/{studentId}/activities/{activityId}": {
+      "schema": { "$ref": "#/entities/StudentActivity" },
+      "description": "Chronological learning activity records for each saved student."
+    },
+    "/users/{userId}/students/{studentId}/progressReports/{reportId}": {
+      "schema": { "$ref": "#/entities/ProgressReport" },
+      "description": "Saved point-in-time pedagogical progress reports for parent/teacher follow-up."
+    },
+    "/leaderboard/{entryId}": {
+      "schema": { "$ref": "#/entities/LeaderboardEntry" },
+      "description": "Grade-scoped leaderboard entries with zero PII for peer ranking."
+    },
+    "/peerChallenges/{challengeId}": {
+      "schema": { "$ref": "#/entities/PeerChallenge" },
+      "description": "Recorded peer quick-challenge results between students in the same grade."
+    }
+  }
+}

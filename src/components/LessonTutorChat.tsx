@@ -89,9 +89,15 @@ export const LessonTutorChat: React.FC<LessonTutorChatProps> = ({
           'ساعدني على فهم خطوات المختبر التفاعلي خطوة بخطوة.',
         ];
 
+  const lastSentAtRef = useRef<number>(0);
+
   const sendQuestion = async (questionText: string) => {
     const clean = questionText.trim();
     if (!clean || loading) return;
+
+    const now = Date.now();
+    if (now - lastSentAtRef.current < 1500) return;
+    lastSentAtRef.current = now;
 
     const userTurn: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -103,6 +109,26 @@ export const LessonTutorChat: React.FC<LessonTutorChatProps> = ({
       role: m.role,
       text: m.text,
     }));
+
+    // Serve identical first-turn questions from sessionStorage cache to save Vercel/Gemini calls
+    const cacheKey = `tutor_cache_${lesson.id}_${clean}`;
+    if (nextHistory.length === 0) {
+      try {
+        const cachedReply = sessionStorage.getItem(cacheKey);
+        if (cachedReply) {
+          setMessages((prev) => [
+            ...prev,
+            userTurn,
+            { id: `m-${Date.now()}`, role: 'model', text: cachedReply },
+          ]);
+          setInputValue('');
+          setErrorMessage(null);
+          return;
+        }
+      } catch {
+        // Ignore sessionStorage errors
+      }
+    }
 
     setMessages((prev) => [...prev, userTurn]);
     setInputValue('');
@@ -116,8 +142,8 @@ export const LessonTutorChat: React.FC<LessonTutorChatProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentName,
-          message: clean,
-          history: nextHistory,
+          message: clean.slice(0, 600),
+          history: nextHistory.slice(-8),
           lesson: {
             id: lesson.id,
             title: lesson.title,
@@ -142,6 +168,14 @@ export const LessonTutorChat: React.FC<LessonTutorChatProps> = ({
 
       if (!res.ok || !data.reply) {
         throw new Error(data.error || 'تعذّر الحصول على رد من المعلّم الذكي.');
+      }
+
+      if (nextHistory.length === 0) {
+        try {
+          sessionStorage.setItem(cacheKey, data.reply);
+        } catch {
+          // Ignore quota
+        }
       }
 
       const modelTurn: ChatMessage = {

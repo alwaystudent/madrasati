@@ -240,5 +240,80 @@ export interface StudentProgress {
   unlockedBadges: Record<string, string>;
   equippedBadgeId: string | null;
   expressChallengesCompleted: number;
+  challengeWins?: number;
   activityLog: ActivityEntry[];
 }
+
+export type CloudSyncStatus = 'local' | 'syncing' | 'synced' | 'error';
+
+export interface SavedStudentRecord {
+  id: string;
+  studentName: string;
+  selectedGrade: GradeLevel;
+  schoolGovernorate: string;
+  points: number;
+  streakDays: number;
+  lastActiveDate: string;
+  completedLessons: Record<string, LessonCompletion>;
+  completedSteps: Record<string, number[]>;
+  unlockedBadges: Record<string, string>;
+  equippedBadgeId: string | null;
+  expressChallengesCompleted: number;
+  challengeWins?: number;
+  updatedAtIso?: string;
+}
+
+export interface LeaderboardEntry {
+  id: string;
+  ownerId: string;
+  studentId: string;
+  displayName: string;
+  grade: GradeLevel;
+  governorate: string;
+  points: number;
+  completedLessonsCount: number;
+  streakDays: number;
+  challengeWins: number;
+  equippedBadgeId: string;
+  updatedAtIso?: string;
+}
+
+export interface PeerChallengeRecord {
+  id: string;
+  ownerId: string;
+  challengerStudentId: string;
+  challengerName: string;
+  opponentOwnerId: string;
+  opponentStudentId: string;
+  opponentName: string;
+  grade: GradeLevel;
+  challengerScore: number;
+  opponentTargetScore: number;
+  totalQuestions: number;
+  challengerWon: boolean;
+  createdAtIso: string;
+}
+
+export interface SavedProgressReport {
+  id: string;
+  studentId: string;
+  studentName: string;
+  selectedGrade: GradeLevel;
+  schoolGovernorate: string;
+  periodLabel: string;
+  overallMasteryPercent: number;
+  averageAccuracy: number;
+  totalPoints: number;
+  streakDays: number;
+  completedLessonsCount: number;
+  totalLessonsCount: number;
+  earnedBadgesCount: number;
+  mathMastery: number;
+  scienceMastery: number;
+  arabicMastery: number;
+  frenchMastery: number;
+  strengthsSummary: string;
+  recommendationsSummary: string;
+  createdAtIso: string;
+}
+

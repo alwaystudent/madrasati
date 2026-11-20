@@ -1,0 +1,394 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1 / Safety Net: Default-deny all unmatched paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitive Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidStudentDocId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidOptionalStudentRef(id) {
+      return id is string && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]*$');
+    }
+
+    function isValidDateString(d) {
+      return d is string && d.size() == 10 && d.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidGrade(g) {
+      return g is int && g in [3, 4, 5, 6];
+    }
+
+    function isValidSubject(s) {
+      return s is string && s.size() <= 16 && s in ['math', 'science', 'arabic', 'french'];
+    }
+
+    function isValidMode(m) {
+      return m is string && m.size() <= 16 && m in ['lesson', 'express', 'exam', 'french'];
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity Validation Blueprints (never reference resource/existing or diff inside these)
+    function isValidUserAccount(data) {
+      return data.keys().hasAll(['ownerId', 'activeStudentId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'activeStudentId', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isValidOptionalStudentRef(data.activeStudentId)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudentProfile(data) {
+      return data.keys().hasAll([
+          'ownerId', 'studentName', 'selectedGrade', 'schoolGovernorate',
+          'points', 'streakDays', 'lastActiveDate', 'completedLessons',
+          'completedSteps', 'unlockedBadges', 'equippedBadgeId',
+          'expressChallengesCompleted', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'studentName', 'selectedGrade', 'schoolGovernorate',
+          'points', 'streakDays', 'lastActiveDate', 'completedLessons',
+          'completedSteps', 'unlockedBadges', 'equippedBadgeId',
+          'expressChallengesCompleted', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 60
+        && isValidGrade(data.selectedGrade)
+        && data.schoolGovernorate is string && data.schoolGovernorate.size() >= 2 && data.schoolGovernorate.size() <= 50
+        && data.points is int && data.points >= 0 && data.points <= 10000000
+        && data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 36500
+        && isValidDateString(data.lastActiveDate)
+        && data.completedLessons is map && data.completedLessons.keys().size() <= 300
+        && data.completedSteps is map && data.completedSteps.keys().size() <= 300
+        && data.unlockedBadges is map && data.unlockedBadges.keys().size() <= 30
+        && data.equippedBadgeId is string && data.equippedBadgeId.size() <= 60
+        && data.expressChallengesCompleted is int && data.expressChallengesCompleted >= 0 && data.expressChallengesCompleted <= 100000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidActivityRecord(data, studentId) {
+      return data.keys().hasAll([
+          'ownerId', 'studentId', 'lessonId', 'grade', 'title',
+          'subjectId', 'score', 'total', 'pointsEarned', 'date', 'mode', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'studentId', 'lessonId', 'grade', 'title',
+          'subjectId', 'score', 'total', 'pointsEarned', 'date', 'mode', 'createdAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isValidStudentDocId(data.studentId)
+        && data.studentId == studentId
+        && data.lessonId is string && data.lessonId.size() >= 1 && data.lessonId.size() <= 80
+        && isValidGrade(data.grade)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && isValidSubject(data.subjectId)
+        && data.score is int && data.score >= 0 && data.score <= 500
+        && data.total is int && data.total >= 1 && data.total <= 500 && data.score <= data.total
+        && data.pointsEarned is int && data.pointsEarned >= 0 && data.pointsEarned <= 10000
+        && isValidDateString(data.date)
+        && isValidMode(data.mode)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidProgressReport(data, studentId) {
+      return data.keys().hasAll([
+          'ownerId', 'studentId', 'studentName', 'selectedGrade', 'schoolGovernorate',
+          'periodLabel', 'overallMasteryPercent', 'averageAccuracy', 'totalPoints',
+          'streakDays', 'completedLessonsCount', 'totalLessonsCount', 'earnedBadgesCount',
+          'mathMastery', 'scienceMastery', 'arabicMastery', 'frenchMastery',
+          'strengthsSummary', 'recommendationsSummary', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'studentId', 'studentName', 'selectedGrade', 'schoolGovernorate',
+          'periodLabel', 'overallMasteryPercent', 'averageAccuracy', 'totalPoints',
+          'streakDays', 'completedLessonsCount', 'totalLessonsCount', 'earnedBadgesCount',
+          'mathMastery', 'scienceMastery', 'arabicMastery', 'frenchMastery',
+          'strengthsSummary', 'recommendationsSummary', 'createdAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isValidStudentDocId(data.studentId)
+        && data.studentId == studentId
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 60
+        && isValidGrade(data.selectedGrade)
+        && data.schoolGovernorate is string && data.schoolGovernorate.size() >= 2 && data.schoolGovernorate.size() <= 50
+        && data.periodLabel is string && data.periodLabel.size() >= 2 && data.periodLabel.size() <= 80
+        && data.overallMasteryPercent is int && data.overallMasteryPercent >= 0 && data.overallMasteryPercent <= 100
+        && data.averageAccuracy is int && data.averageAccuracy >= 0 && data.averageAccuracy <= 100
+        && data.totalPoints is int && data.totalPoints >= 0 && data.totalPoints <= 10000000
+        && data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 36500
+        && data.completedLessonsCount is int && data.completedLessonsCount >= 0 && data.completedLessonsCount <= 500
+        && data.totalLessonsCount is int && data.totalLessonsCount >= 1 && data.totalLessonsCount <= 500
+        && data.earnedBadgesCount is int && data.earnedBadgesCount >= 0 && data.earnedBadgesCount <= 50
+        && data.mathMastery is int && data.mathMastery >= 0 && data.mathMastery <= 100
+        && data.scienceMastery is int && data.scienceMastery >= 0 && data.scienceMastery <= 100
+        && data.arabicMastery is int && data.arabicMastery >= 0 && data.arabicMastery <= 100
+        && data.frenchMastery is int && data.frenchMastery >= 0 && data.frenchMastery <= 100
+        && data.strengthsSummary is string && data.strengthsSummary.size() <= 400
+        && data.recommendationsSummary is string && data.recommendationsSummary.size() <= 500
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLeaderboardEntry(data, entryId) {
+      return data.keys().hasAll([
+          'ownerId', 'studentId', 'displayName', 'grade', 'governorate',
+          'points', 'completedLessonsCount', 'streakDays', 'challengeWins',
+          'equippedBadgeId', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'studentId', 'displayName', 'grade', 'governorate',
+          'points', 'completedLessonsCount', 'streakDays', 'challengeWins',
+          'equippedBadgeId', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isValidStudentDocId(data.studentId)
+        && data.studentId == entryId
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40
+        && isValidGrade(data.grade)
+        && data.governorate is string && data.governorate.size() >= 2 && data.governorate.size() <= 50
+        && data.points is int && data.points >= 0 && data.points <= 10000000
+        && data.completedLessonsCount is int && data.completedLessonsCount >= 0 && data.completedLessonsCount <= 500
+        && data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 36500
+        && data.challengeWins is int && data.challengeWins >= 0 && data.challengeWins <= 100000
+        && data.equippedBadgeId is string && data.equippedBadgeId.size() <= 60
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPeerChallenge(data) {
+      return data.keys().hasAll([
+          'ownerId', 'challengerStudentId', 'challengerName',
+          'opponentOwnerId', 'opponentStudentId', 'opponentName',
+          'grade', 'challengerScore', 'opponentTargetScore',
+          'totalQuestions', 'challengerWon', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'challengerStudentId', 'challengerName',
+          'opponentOwnerId', 'opponentStudentId', 'opponentName',
+          'grade', 'challengerScore', 'opponentTargetScore',
+          'totalQuestions', 'challengerWon', 'createdAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isValidStudentDocId(data.challengerStudentId)
+        && data.challengerName is string && data.challengerName.size() >= 1 && data.challengerName.size() <= 40
+        && isValidId(data.opponentOwnerId)
+        && isValidStudentDocId(data.opponentStudentId)
+        && data.opponentName is string && data.opponentName.size() >= 1 && data.opponentName.size() <= 40
+        && isValidGrade(data.grade)
+        && data.challengerScore is int && data.challengerScore >= 0 && data.challengerScore <= 20
+        && data.opponentTargetScore is int && data.opponentTargetScore >= 0 && data.opponentTargetScore <= 20
+        && data.totalQuestions is int && data.totalQuestions >= 1 && data.totalQuestions <= 20
+        && data.challengerWon is bool
+        && data.createdAt is timestamp;
+    }
+
+    // Collection: /users/{userId}
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isEmailVerified() && isValidId(userId);
+      allow list: if isSignedIn() && isEmailVerified() && existing().ownerId == request.auth.uid;
+      allow create: if isOwner(userId)
+        && isEmailVerified()
+        && isValidId(userId)
+        && isValidUserAccount(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId)
+        && isEmailVerified()
+        && isValidId(userId)
+        && isValidUserAccount(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['activeStudentId', 'updatedAt']);
+      allow delete: if false;
+
+      // Subcollection: /users/{userId}/students/{studentId}
+      match /students/{studentId} {
+        allow get: if isOwner(userId) && isEmailVerified() && isValidId(userId) && isValidStudentDocId(studentId);
+        allow list: if isSignedIn() && isEmailVerified() && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isEmailVerified()
+          && isValidId(userId)
+          && isValidStudentDocId(studentId)
+          && isValidStudentProfile(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.ownerId == request.auth.uid;
+        allow update: if isOwner(userId)
+          && isEmailVerified()
+          && isValidId(userId)
+          && isValidStudentDocId(studentId)
+          && isValidStudentProfile(incoming())
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            // Action 1: Profile metadata edit
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'studentName', 'selectedGrade', 'schoolGovernorate', 'updatedAt'
+            ])
+            ||
+            // Action 2: Learning progress update
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'points', 'streakDays', 'lastActiveDate', 'completedLessons',
+              'completedSteps', 'unlockedBadges', 'equippedBadgeId',
+              'expressChallengesCompleted', 'updatedAt'
+            ])
+            ||
+            // Action 3: Combined profile + progress sync
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'studentName', 'selectedGrade', 'schoolGovernorate',
+              'points', 'streakDays', 'lastActiveDate', 'completedLessons',
+              'completedSteps', 'unlockedBadges', 'equippedBadgeId',
+              'expressChallengesCompleted', 'updatedAt'
+            ])
+          );
+        allow delete: if isOwner(userId)
+          && isEmailVerified()
+          && isValidId(userId)
+          && isValidStudentDocId(studentId)
+          && existing().ownerId == request.auth.uid;
+
+        // Subcollection: /users/{userId}/students/{studentId}/activities/{activityId}
+        match /activities/{activityId} {
+          allow get: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(activityId);
+          allow list: if isSignedIn() && isEmailVerified() && existing().ownerId == request.auth.uid;
+          allow create: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(activityId)
+            && isValidActivityRecord(incoming(), studentId)
+            && incoming().createdAt == request.time
+            && exists(/databases/$(database)/documents/users/$(userId)/students/$(studentId))
+            && get(/databases/$(database)/documents/users/$(userId)/students/$(studentId)).data.ownerId == request.auth.uid;
+          allow update: if false;
+          allow delete: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(activityId)
+            && existing().ownerId == request.auth.uid;
+        }
+
+        // Subcollection: /users/{userId}/students/{studentId}/progressReports/{reportId}
+        match /progressReports/{reportId} {
+          allow get: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(reportId);
+          allow list: if isSignedIn() && isEmailVerified() && existing().ownerId == request.auth.uid;
+          allow create: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(reportId)
+            && isValidProgressReport(incoming(), studentId)
+            && incoming().createdAt == request.time
+            && exists(/databases/$(database)/documents/users/$(userId)/students/$(studentId))
+            && get(/databases/$(database)/documents/users/$(userId)/students/$(studentId)).data.ownerId == request.auth.uid;
+          allow update: if false;
+          allow delete: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(reportId)
+            && existing().ownerId == request.auth.uid;
+        }
+      }
+    }
+
+    // Collection: /leaderboard/{entryId} (Zero-PII Grade Ranking)
+    match /leaderboard/{entryId} {
+      allow get: if isSignedIn() && isEmailVerified() && isValidStudentDocId(entryId);
+      allow list: if isSignedIn() && isEmailVerified() && existing().grade in [3, 4, 5, 6];
+      allow create: if isSignedIn()
+        && isEmailVerified()
+        && isValidStudentDocId(entryId)
+        && isValidLeaderboardEntry(incoming(), entryId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/students/$(entryId))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)/students/$(entryId)).data.ownerId == request.auth.uid;
+      allow update: if isSignedIn()
+        && isEmailVerified()
+        && isValidStudentDocId(entryId)
+        && isValidLeaderboardEntry(incoming(), entryId)
+        && incoming().ownerId == existing().ownerId
+        && incoming().studentId == existing().studentId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'grade', 'governorate', 'points',
+          'completedLessonsCount', 'streakDays', 'challengeWins',
+          'equippedBadgeId', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn()
+        && isEmailVerified()
+        && isValidStudentDocId(entryId)
+        && existing().ownerId == request.auth.uid;
+    }
+
+    // Collection: /peerChallenges/{challengeId}
+    match /peerChallenges/{challengeId} {
+      allow get: if isSignedIn()
+        && isEmailVerified()
+        && isValidId(challengeId)
+        && (existing().ownerId == request.auth.uid || existing().opponentOwnerId == request.auth.uid);
+      allow list: if isSignedIn()
+        && isEmailVerified()
+        && (existing().ownerId == request.auth.uid || existing().opponentOwnerId == request.auth.uid);
+      allow create: if isSignedIn()
+        && isEmailVerified()
+        && isValidId(challengeId)
+        && isValidPeerChallenge(incoming())
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/students/$(incoming().challengerStudentId))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)/students/$(incoming().challengerStudentId)).data.ownerId == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn()
+        && isEmailVerified()
+        && isValidId(challengeId)
+        && existing().ownerId == request.auth.uid;
+    }
+  }
+}

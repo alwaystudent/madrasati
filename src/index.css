@@ -74,3 +74,16 @@
     transform: none;
   }
 }
+
+@media print {
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    background-image: none !important;
+  }
+}
+

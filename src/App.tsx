@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Menu, Timer } from 'lucide-react';
 import { SidebarNav, AppView } from './components/SidebarNav';
-import { StudentOnboarding } from './components/StudentOnboarding';
+import { MainLandingPortal } from './components/MainLandingPortal';
 import { LearningPathwayHome } from './components/LearningPathwayHome';
 import { SubjectBrowser } from './components/SubjectBrowser';
 import { LessonWorkspace } from './components/LessonWorkspace';
 import { FrenchTrainingStudio } from './components/FrenchTrainingStudio';
 import { PracticeBankView } from './components/PracticeBankView';
 import { ExpressChallenge } from './components/ExpressChallenge';
+import { LeaderboardView } from './components/LeaderboardView';
 import { ProgressDashboard } from './components/ProgressDashboard';
+import { ProgressReportView } from './components/ProgressReportView';
+import { LegalPolicyView } from './components/LegalPolicyView';
 import { RewardToast } from './components/RewardToast';
 import { GRADES } from './data/tunisianCurriculum';
 import { useStudentProgress } from './hooks/useStudentProgress';
@@ -19,6 +22,8 @@ export default function App() {
   const [activeView, setActiveView] = useState<AppView>('home');
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [portalLegalTab, setPortalLegalTab] = useState<'privacy' | 'terms' | null>(null);
+  const [legalInitialTab, setLegalInitialTab] = useState<'privacy' | 'terms'>('privacy');
   const shouldReduceMotion = useReducedMotion();
 
   const {
@@ -33,6 +38,26 @@ export default function App() {
     earnedBadges,
     levelInfo,
     rewardNotification,
+    authUser,
+    savedStudents,
+    activeStudentId,
+    savedReports,
+    cloudSyncStatus,
+    cloudError,
+    hasPendingSync,
+    leaderboardEntries,
+    peerChallenges,
+    leaderboardLoading,
+    refreshLeaderboard,
+    submitPeerChallengeResult,
+    flushCloudSyncNow,
+    signInWithGoogle,
+    signOutCloud,
+    selectSavedStudent,
+    createNewStudentProfile,
+    deleteSavedStudent,
+    saveProgressReportSnapshot,
+    removeProgressReportSnapshot,
     completeOnboarding,
     reopenOnboarding,
     dismissRewardNotification,
@@ -69,20 +94,54 @@ export default function App() {
     french_studio: 'أكاديمية اللغة الفرنسية التفاعلية',
     practice: 'بنك التمارين والاختبارات 2026',
     express: 'تحدي 3 دقائق السريع',
+    leaderboard: 'لوحة الصدارة وتحدّي الزملاء',
     progress: 'بطاقة التلميذ والأوسمة',
+    reports: 'حفظ بيانات التلاميذ وتقارير التقدّم',
+    legal: 'سياسة الخصوصية وشروط الاستخدام',
     lesson: activeLesson ? activeLesson.title : 'الدرس التفاعلي',
   };
 
   if (!progress.isProfileConfigured) {
+    if (portalLegalTab) {
+      return (
+        <div className="min-h-screen bg-slate-50">
+          <LegalPolicyView
+            initialTab={portalLegalTab}
+            onBack={() => setPortalLegalTab(null)}
+          />
+        </div>
+      );
+    }
+
     return (
-      <StudentOnboarding
+      <MainLandingPortal
         initialName={progress.studentName}
         initialGrade={progress.selectedGrade}
         initialGovernorate={progress.schoolGovernorate}
-        onComplete={(name, grade, governorate) => {
+        authUser={authUser}
+        savedStudents={savedStudents}
+        cloudSyncStatus={cloudSyncStatus}
+        cloudError={cloudError}
+        onSignInWithGoogle={signInWithGoogle}
+        onSignOutCloud={signOutCloud}
+        onSelectSavedStudent={async (sid) => {
+          await selectSavedStudent(sid);
+          setActiveView('home');
+          setActiveLesson(null);
+        }}
+        onCreateNewStudent={async (name, grade, governorate) => {
+          await createNewStudentProfile(name, grade, governorate);
+          setActiveView('home');
+          setActiveLesson(null);
+        }}
+        onCompleteDirectLogin={(name, grade, governorate) => {
           completeOnboarding(name, grade, governorate);
           setActiveView('home');
           setActiveLesson(null);
+        }}
+        onOpenLegal={(tab) => {
+          setPortalLegalTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
     );
@@ -95,6 +154,11 @@ export default function App() {
         onNavigate={handleNavigate}
         progress={progress}
         levelInfo={levelInfo}
+        authUser={authUser}
+        cloudSyncStatus={cloudSyncStatus}
+        hasPendingSync={hasPendingSync}
+        onFlushSyncNow={flushCloudSyncNow}
+        onSignInWithGoogle={signInWithGoogle}
         onChangeStudent={() => reopenOnboarding()}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
@@ -166,6 +230,7 @@ export default function App() {
                 onOpenPractice={() => handleNavigate('practice')}
                 onOpenProgress={() => handleNavigate('progress')}
                 onOpenFrenchStudio={() => handleNavigate('french_studio')}
+                onOpenReports={() => handleNavigate('reports')}
               />
             )}
 
@@ -258,6 +323,23 @@ export default function App() {
               />
             )}
 
+            {activeView === 'leaderboard' && (
+              <LeaderboardView
+                progress={progress}
+                studentLessons={studentLessons}
+                authUser={authUser}
+                activeStudentId={activeStudentId}
+                leaderboardEntries={leaderboardEntries}
+                peerChallenges={peerChallenges}
+                leaderboardLoading={leaderboardLoading}
+                hasPendingSync={hasPendingSync}
+                onRefreshLeaderboard={refreshLeaderboard}
+                onSubmitChallengeResult={submitPeerChallengeResult}
+                onSignInWithGoogle={signInWithGoogle}
+                onFlushSyncNow={flushCloudSyncNow}
+              />
+            )}
+
             {activeView === 'progress' && (
               <ProgressDashboard
                 progress={progress}
@@ -276,6 +358,43 @@ export default function App() {
                   handleNavigate('home');
                 }}
                 onSelectLesson={handleSelectLesson}
+                onOpenReports={() => handleNavigate('reports')}
+              />
+            )}
+
+            {activeView === 'reports' && (
+              <ProgressReportView
+                progress={progress}
+                studentLessons={studentLessons}
+                completedCount={completedCount}
+                totalLessons={totalLessons}
+                overallMasteryPercent={overallMasteryPercent}
+                subjectStats={subjectStats}
+                earnedBadgesCount={earnedBadges.length}
+                levelInfo={levelInfo}
+                authUser={authUser}
+                savedStudents={savedStudents}
+                activeStudentId={activeStudentId}
+                savedReports={savedReports}
+                cloudSyncStatus={cloudSyncStatus}
+                cloudError={cloudError}
+                hasPendingSync={hasPendingSync}
+                onFlushSyncNow={flushCloudSyncNow}
+                onSignInWithGoogle={signInWithGoogle}
+                onSignOutCloud={signOutCloud}
+                onSelectSavedStudent={selectSavedStudent}
+                onCreateNewStudent={createNewStudentProfile}
+                onDeleteSavedStudent={deleteSavedStudent}
+                onSaveProgressReport={saveProgressReportSnapshot}
+                onDeleteProgressReport={removeProgressReportSnapshot}
+                onSelectLesson={handleSelectLesson}
+              />
+            )}
+
+            {activeView === 'legal' && (
+              <LegalPolicyView
+                initialTab={legalInitialTab}
+                onBack={() => handleNavigate('home')}
               />
             )}
           </motion.div>
@@ -286,7 +405,7 @@ export default function App() {
             <div>
               منارة التعلّم — منصة تفاعلية وفق برنامج التعليم الابتدائي بالجمهورية التونسية 2026 ({activeGradeMeta.label})
             </div>
-            <div className="flex items-center gap-5">
+            <div className="flex flex-wrap items-center gap-4">
               <button
                 type="button"
                 onClick={() => handleNavigate('subjects')}
@@ -296,24 +415,37 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => handleNavigate('french_studio')}
+                onClick={() => handleNavigate('leaderboard')}
                 className="hover:text-slate-900 cursor-pointer"
               >
-                أكاديمية الفرنسية
+                لوحة الصدارة
               </button>
               <button
                 type="button"
-                onClick={() => handleNavigate('practice')}
+                onClick={() => handleNavigate('reports')}
                 className="hover:text-slate-900 cursor-pointer"
               >
-                بنك التمارين
+                تقارير التقدّم
               </button>
               <button
                 type="button"
-                onClick={() => handleNavigate('progress')}
+                onClick={() => {
+                  setLegalInitialTab('privacy');
+                  handleNavigate('legal');
+                }}
                 className="hover:text-slate-900 cursor-pointer"
               >
-                التقدّم والأوسمة
+                الخصوصية
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLegalInitialTab('terms');
+                  handleNavigate('legal');
+                }}
+                className="hover:text-slate-900 cursor-pointer"
+              >
+                شروط الاستخدام
               </button>
             </div>
           </div>

@@ -1,16 +1,47 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
 import { BADGES, LESSONS, LEVELS } from '../data/tunisianCurriculum';
+import { auth, googleProvider } from '../firebase';
+import {
+  clearAllCloudCaches,
+  CreateProgressReportInput,
+  createStudentProfileInCloud,
+  deleteProgressReportInCloud,
+  deleteStudentProfileInCloud,
+  ensureUserAccount,
+  fetchGradeLeaderboardOnce,
+  fetchPeerChallengesOnce,
+  fetchProgressReportsOnce,
+  fetchStudentActivitiesOnce,
+  fetchUserStudentsOnce,
+  generateSafeId,
+  recordPeerChallengeToCloud,
+  saveProgressReportToCloud,
+  saveStudentActivityToCloud,
+  setActiveStudentRef,
+  syncStudentProgressToCloud,
+  upsertLeaderboardEntry,
+} from '../services/studentCloudService';
 import {
   ActivityEntry,
   BadgeDefinition,
+  CloudSyncStatus,
   GradeLevel,
+  LeaderboardEntry,
   LevelInfo,
+  PeerChallengeRecord,
   RewardNotification,
+  SavedProgressReport,
+  SavedStudentRecord,
   StudentProgress,
   SubjectId,
 } from '../types/curriculum';
 
 const STORAGE_KEY = 'manarat_khamisa_progress_v3';
+const LOCAL_REPORTS_KEY = 'manarat_khamisa_local_reports_v1';
+const LOCAL_CHALLENGES_KEY = 'manarat_khamisa_local_challenges_v1';
+const SYNC_DEBOUNCE_MS = 8500; // Batch rapid progress changes into 1 Firestore write
+const LEADERBOARD_REFRESH_COOLDOWN_MS = 15000;
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -54,6 +85,7 @@ const createInitialProgress = (): StudentProgress => {
     },
     equippedBadgeId: 'first-step',
     expressChallengesCompleted: 0,
+    challengeWins: 0,
     activityLog: [
       {
         id: 'seed-1',
@@ -103,10 +135,64 @@ function normalizeProgress(raw: Partial<StudentProgress>): StudentProgress {
     ...raw,
     studentName: cleanName,
     selectedGrade: validGrade,
+    challengeWins: typeof raw.challengeWins === 'number' ? raw.challengeWins : 0,
     isProfileConfigured:
       typeof raw.isProfileConfigured === 'boolean' ? raw.isProfileConfigured : false,
     activityLog,
   };
+}
+
+function recordToProgress(
+  record: SavedStudentRecord,
+  existingActivities: ActivityEntry[] = [],
+  existingWins = 0
+): StudentProgress {
+  return {
+    studentName: record.studentName,
+    selectedGrade: record.selectedGrade,
+    schoolGovernorate: record.schoolGovernorate,
+    isProfileConfigured: true,
+    points: record.points,
+    streakDays: record.streakDays,
+    lastActiveDate: record.lastActiveDate,
+    completedLessons: record.completedLessons || {},
+    completedSteps: record.completedSteps || {},
+    unlockedBadges: record.unlockedBadges || {},
+    equippedBadgeId: record.equippedBadgeId ?? null,
+    expressChallengesCompleted: record.expressChallengesCompleted || 0,
+    challengeWins: record.challengeWins ?? existingWins,
+    activityLog: existingActivities,
+  };
+}
+
+function computeSyncHash(p: StudentProgress): string {
+  return JSON.stringify({
+    n: p.studentName,
+    g: p.selectedGrade,
+    gov: p.schoolGovernorate,
+    pts: p.points,
+    st: p.streakDays,
+    la: p.lastActiveDate,
+    cl: p.completedLessons,
+    cs: p.completedSteps,
+    ub: p.unlockedBadges,
+    eb: p.equippedBadgeId ?? '',
+    ex: p.expressChallengesCompleted,
+    cw: p.challengeWins ?? 0,
+  });
+}
+
+function computeLeaderboardHash(p: StudentProgress): string {
+  return JSON.stringify({
+    n: p.studentName,
+    g: p.selectedGrade,
+    gov: p.schoolGovernorate,
+    pts: p.points,
+    clc: Object.keys(p.completedLessons || {}).length,
+    st: p.streakDays,
+    cw: p.challengeWins ?? 0,
+    eb: p.equippedBadgeId ?? '',
+  });
 }
 
 function evaluateNewBadges(candidate: StudentProgress): BadgeDefinition[] {
@@ -177,6 +263,16 @@ export function getLevelInfo(points: number): LevelInfo {
   return current;
 }
 
+export interface PeerChallengeSubmitInput {
+  opponentOwnerId: string;
+  opponentStudentId: string;
+  opponentName: string;
+  opponentTargetScore: number;
+  challengerScore: number;
+  totalQuestions: number;
+  pointsEarned: number;
+}
+
 export function useStudentProgress() {
   const [progress, setProgress] = useState<StudentProgress>(() => {
     try {
@@ -190,9 +286,62 @@ export function useStudentProgress() {
     return createInitialProgress();
   });
 
+  const [localReports, setLocalReports] = useState<SavedProgressReport[]>(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_REPORTS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as SavedProgressReport[];
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  const [localChallenges, setLocalChallenges] = useState<PeerChallengeRecord[]>(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_CHALLENGES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as PeerChallengeRecord[];
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [savedStudents, setSavedStudents] = useState<SavedStudentRecord[]>([]);
+  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
+  const [cloudReports, setCloudReports] = useState<SavedProgressReport[]>([]);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('local');
+  const [cloudError, setCloudError] = useState<string | null>(null);
+  const [hasPendingSync, setHasPendingSync] = useState(false);
+
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
+  const [cloudChallenges, setCloudChallenges] = useState<PeerChallengeRecord[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+
   const [rewardNotification, setRewardNotification] =
     useState<RewardNotification | null>(null);
   const [reminderDismissed, setReminderDismissed] = useState(false);
+
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
+  const authUserRef = useRef<User | null>(authUser);
+  authUserRef.current = authUser;
+  const activeStudentIdRef = useRef<string | null>(activeStudentId);
+  activeStudentIdRef.current = activeStudentId;
+
+  // Batching / Dirty-check refs to minimize Firestore writes
+  const syncTimerRef = useRef<number | null>(null);
+  const pendingProgressRef = useRef<StudentProgress | null>(null);
+  const lastSyncedHashRef = useRef<string>('');
+  const lastLeaderboardHashRef = useRef<string>('');
+  const lastLeaderboardFetchRef = useRef<number>(0);
 
   useEffect(() => {
     try {
@@ -202,17 +351,471 @@ export function useStudentProgress() {
     }
   }, [progress]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(localReports));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [localReports]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_CHALLENGES_KEY, JSON.stringify(localChallenges));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [localChallenges]);
+
+  const flushCloudSyncNow = useCallback(async () => {
+    if (syncTimerRef.current !== null) {
+      window.clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+
+    const user = authUserRef.current;
+    const sid = activeStudentIdRef.current;
+    const target = pendingProgressRef.current;
+    if (!user || !user.emailVerified || !sid || !target) {
+      setHasPendingSync(false);
+      return;
+    }
+
+    const targetHash = computeSyncHash(target);
+    if (targetHash === lastSyncedHashRef.current) {
+      pendingProgressRef.current = null;
+      setHasPendingSync(false);
+      return;
+    }
+
+    setCloudSyncStatus('syncing');
+    try {
+      await syncStudentProgressToCloud(user.uid, sid, target);
+
+      const lbHash = computeLeaderboardHash(target);
+      if (lbHash !== lastLeaderboardHashRef.current) {
+        await upsertLeaderboardEntry(user.uid, sid, target, target.challengeWins ?? 0);
+        lastLeaderboardHashRef.current = lbHash;
+      }
+
+      lastSyncedHashRef.current = targetHash;
+      pendingProgressRef.current = null;
+      setHasPendingSync(false);
+      setCloudSyncStatus('synced');
+      setCloudError(null);
+
+      // Update savedStudents cache in React state locally without extra reads
+      setSavedStudents((prev) =>
+        prev.map((s) =>
+          s.id === sid
+            ? {
+                ...s,
+                studentName: target.studentName,
+                selectedGrade: target.selectedGrade,
+                schoolGovernorate: target.schoolGovernorate,
+                points: target.points,
+                streakDays: target.streakDays,
+                lastActiveDate: target.lastActiveDate,
+                completedLessons: target.completedLessons,
+                completedSteps: target.completedSteps,
+                unlockedBadges: target.unlockedBadges,
+                equippedBadgeId: target.equippedBadgeId,
+                expressChallengesCompleted: target.expressChallengesCompleted,
+                challengeWins: target.challengeWins,
+                updatedAtIso: new Date().toISOString(),
+              }
+            : s
+        )
+      );
+    } catch (err) {
+      setCloudSyncStatus('error');
+      setCloudError(err instanceof Error ? err.message : 'تعذّر الحفظ السحابي');
+    }
+  }, []);
+
+  const scheduleCloudSync = useCallback(
+    (nextState: StudentProgress, immediate = false) => {
+      const user = authUserRef.current;
+      const sid = activeStudentIdRef.current;
+      if (!user || !user.emailVerified || !sid) return;
+
+      const nextHash = computeSyncHash(nextState);
+      if (nextHash === lastSyncedHashRef.current) return;
+
+      pendingProgressRef.current = nextState;
+      setHasPendingSync(true);
+
+      if (syncTimerRef.current !== null) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+
+      if (immediate) {
+        void flushCloudSyncNow();
+      } else {
+        syncTimerRef.current = window.setTimeout(() => {
+          void flushCloudSyncNow();
+        }, SYNC_DEBOUNCE_MS);
+      }
+    },
+    [flushCloudSyncNow]
+  );
+
+  // Flush pending batched progress on tab hide / unload so data is never lost
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden' && pendingProgressRef.current) {
+        void flushCloudSyncNow();
+      }
+    };
+    const handlePageHide = () => {
+      if (pendingProgressRef.current) {
+        void flushCloudSyncNow();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', handlePageHide);
+      if (syncTimerRef.current !== null) {
+        window.clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, [flushCloudSyncNow]);
+
+  // Listen to Firebase Auth state and load students via bounded one-shot cached reads (zero permanent listeners)
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      setAuthUser(user);
+      setAuthReady(true);
+
+      if (!user || !user.emailVerified) {
+        setSavedStudents([]);
+        setActiveStudentId(null);
+        setCloudReports([]);
+        setLeaderboardEntries([]);
+        setCloudChallenges([]);
+        pendingProgressRef.current = null;
+        setHasPendingSync(false);
+        setCloudSyncStatus('local');
+        clearAllCloudCaches();
+        return;
+      }
+
+      setCloudSyncStatus('syncing');
+      setCloudError(null);
+
+      try {
+        const preferredStudentId = await ensureUserAccount(user.uid);
+        const existingStudents = await fetchUserStudentsOnce(user.uid);
+
+        if (existingStudents.length === 0) {
+          const newId = generateSafeId('stu');
+          const initialLocal = progressRef.current;
+          await createStudentProfileInCloud(user.uid, newId, initialLocal);
+          await upsertLeaderboardEntry(
+            user.uid,
+            newId,
+            initialLocal,
+            initialLocal.challengeWins ?? 0
+          );
+          for (const entry of initialLocal.activityLog.slice(0, 8)) {
+            await saveStudentActivityToCloud(user.uid, newId, entry);
+          }
+          const createdRecord: SavedStudentRecord = {
+            id: newId,
+            studentName: initialLocal.studentName,
+            selectedGrade: initialLocal.selectedGrade,
+            schoolGovernorate: initialLocal.schoolGovernorate,
+            points: initialLocal.points,
+            streakDays: initialLocal.streakDays,
+            lastActiveDate: initialLocal.lastActiveDate,
+            completedLessons: initialLocal.completedLessons,
+            completedSteps: initialLocal.completedSteps,
+            unlockedBadges: initialLocal.unlockedBadges,
+            equippedBadgeId: initialLocal.equippedBadgeId,
+            expressChallengesCompleted: initialLocal.expressChallengesCompleted,
+            challengeWins: initialLocal.challengeWins ?? 0,
+            updatedAtIso: new Date().toISOString(),
+          };
+          setSavedStudents([createdRecord]);
+          setActiveStudentId(newId);
+          const nextState = { ...initialLocal, isProfileConfigured: true };
+          setProgress(nextState);
+          lastSyncedHashRef.current = computeSyncHash(nextState);
+          lastLeaderboardHashRef.current = computeLeaderboardHash(nextState);
+        } else {
+          setSavedStudents(existingStudents);
+          const chosen =
+            existingStudents.find((s) => s.id === preferredStudentId) ?? existingStudents[0];
+          setActiveStudentId(chosen.id);
+          const hydrated = recordToProgress(chosen, progressRef.current.activityLog);
+          setProgress(hydrated);
+          lastSyncedHashRef.current = computeSyncHash(hydrated);
+          lastLeaderboardHashRef.current = '';
+        }
+
+        setCloudSyncStatus('synced');
+      } catch (err) {
+        setCloudSyncStatus('error');
+        setCloudError(err instanceof Error ? err.message : 'تعذّر الاتصال بقاعدة البيانات');
+      }
+    });
+
+    return () => {
+      unsubAuth();
+    };
+  }, []);
+
+  // Load activities and reports once (cached) when active student changes
+  useEffect(() => {
+    if (!authUser || !authUser.emailVerified || !activeStudentId) {
+      return;
+    }
+
+    let cancelled = false;
+    const loadStudentSubCollections = async () => {
+      try {
+        const [activities, reports] = await Promise.all([
+          fetchStudentActivitiesOnce(authUser.uid, activeStudentId),
+          fetchProgressReportsOnce(authUser.uid, activeStudentId),
+        ]);
+        if (cancelled) return;
+        setProgress((prev) => ({
+          ...prev,
+          activityLog: activities,
+        }));
+        setCloudReports(reports);
+      } catch {
+        // Non-fatal: keep existing local view if sub-fetch fails
+      }
+    };
+
+    void loadStudentSubCollections();
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser, activeStudentId]);
+
+  const refreshLeaderboard = useCallback(
+    async (force = false) => {
+      const user = authUserRef.current;
+      const sid = activeStudentIdRef.current;
+      const grade = progressRef.current.selectedGrade;
+
+      if (!user || !user.emailVerified) {
+        setLeaderboardEntries([]);
+        return;
+      }
+
+      const now = Date.now();
+      const canForce = force && now - lastLeaderboardFetchRef.current >= LEADERBOARD_REFRESH_COOLDOWN_MS;
+      setLeaderboardLoading(true);
+
+      try {
+        // Flush any dirty local progress so student's own score is up to date before fetching rank
+        if (pendingProgressRef.current) {
+          await flushCloudSyncNow();
+        } else if (sid) {
+          const currentLbHash = computeLeaderboardHash(progressRef.current);
+          if (currentLbHash !== lastLeaderboardHashRef.current) {
+            await upsertLeaderboardEntry(
+              user.uid,
+              sid,
+              progressRef.current,
+              progressRef.current.challengeWins ?? 0
+            );
+            lastLeaderboardHashRef.current = currentLbHash;
+          }
+        }
+
+        const [entries, challenges] = await Promise.all([
+          fetchGradeLeaderboardOnce(grade, canForce),
+          fetchPeerChallengesOnce(user.uid, canForce),
+        ]);
+
+        if (canForce || lastLeaderboardFetchRef.current === 0) {
+          lastLeaderboardFetchRef.current = now;
+        }
+
+        setLeaderboardEntries(entries);
+        setCloudChallenges(challenges);
+
+        // Sync challengeWins from authoritative leaderboard record if available
+        if (sid) {
+          const selfRow = entries.find((e) => e.studentId === sid);
+          if (selfRow && selfRow.challengeWins > (progressRef.current.challengeWins ?? 0)) {
+            setProgress((prev) => ({
+              ...prev,
+              challengeWins: selfRow.challengeWins,
+            }));
+          }
+        }
+      } catch (err) {
+        setCloudError(err instanceof Error ? err.message : 'تعذّر تحميل لوحة الصدارة');
+      } finally {
+        setLeaderboardLoading(false);
+      }
+    },
+    [flushCloudSyncNow]
+  );
+
+  const signInWithGoogle = useCallback(async () => {
+    setCloudError(null);
+    setCloudSyncStatus('syncing');
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('popup-closed-by-user') || msg.includes('cancelled-popup-request')) {
+        setCloudSyncStatus('local');
+        return;
+      }
+      setCloudSyncStatus('error');
+      setCloudError('تعذّر تسجيل الدخول بحساب Google. يرجى السماح بالنوافذ المنبثقة والمحاولة مجدداً.');
+    }
+  }, []);
+
+  const signOutCloud = useCallback(async () => {
+    try {
+      if (pendingProgressRef.current) {
+        await flushCloudSyncNow();
+      }
+      await signOut(auth);
+      setActiveStudentId(null);
+      setSavedStudents([]);
+      setCloudReports([]);
+      setLeaderboardEntries([]);
+      setCloudChallenges([]);
+      setCloudSyncStatus('local');
+      clearAllCloudCaches();
+    } catch {
+      setCloudError('تعذّر تسجيل الخروج حالياً.');
+    }
+  }, [flushCloudSyncNow]);
+
+  const selectSavedStudent = useCallback(
+    async (studentId: string) => {
+      if (pendingProgressRef.current) {
+        await flushCloudSyncNow();
+      }
+      const target = savedStudents.find((s) => s.id === studentId);
+      if (!target) return;
+      setActiveStudentId(studentId);
+      const nextProgress = recordToProgress(target, []);
+      setProgress(nextProgress);
+      lastSyncedHashRef.current = computeSyncHash(nextProgress);
+      lastLeaderboardHashRef.current = '';
+      setReminderDismissed(false);
+
+      if (authUserRef.current && authUserRef.current.emailVerified) {
+        try {
+          await setActiveStudentRef(authUserRef.current.uid, studentId);
+        } catch {
+          // non-fatal
+        }
+      }
+    },
+    [savedStudents, flushCloudSyncNow]
+  );
+
+  const createNewStudentProfile = useCallback(
+    async (studentName: string, selectedGrade: GradeLevel, schoolGovernorate: string) => {
+      if (pendingProgressRef.current) {
+        await flushCloudSyncNow();
+      }
+      const today = getTodayKey();
+      const fresh: StudentProgress = {
+        studentName: studentName.trim() || 'تلميذ جديد',
+        selectedGrade,
+        schoolGovernorate: schoolGovernorate.trim() || 'تونس',
+        isProfileConfigured: true,
+        points: 0,
+        streakDays: 1,
+        lastActiveDate: today,
+        completedLessons: {},
+        completedSteps: {},
+        unlockedBadges: {},
+        equippedBadgeId: null,
+        expressChallengesCompleted: 0,
+        challengeWins: 0,
+        activityLog: [],
+      };
+
+      setProgress(fresh);
+      setReminderDismissed(true);
+
+      const user = authUserRef.current;
+      if (user && user.emailVerified) {
+        setCloudSyncStatus('syncing');
+        const newId = generateSafeId('stu');
+        await createStudentProfileInCloud(user.uid, newId, fresh);
+        await upsertLeaderboardEntry(user.uid, newId, fresh, 0);
+        const newRecord: SavedStudentRecord = {
+          id: newId,
+          studentName: fresh.studentName,
+          selectedGrade: fresh.selectedGrade,
+          schoolGovernorate: fresh.schoolGovernorate,
+          points: 0,
+          streakDays: 1,
+          lastActiveDate: today,
+          completedLessons: {},
+          completedSteps: {},
+          unlockedBadges: {},
+          equippedBadgeId: null,
+          expressChallengesCompleted: 0,
+          challengeWins: 0,
+          updatedAtIso: new Date().toISOString(),
+        };
+        setSavedStudents((prev) => [newRecord, ...prev]);
+        setActiveStudentId(newId);
+        lastSyncedHashRef.current = computeSyncHash(fresh);
+        lastLeaderboardHashRef.current = computeLeaderboardHash(fresh);
+        setCloudSyncStatus('synced');
+      }
+    },
+    [flushCloudSyncNow]
+  );
+
+  const deleteSavedStudent = useCallback(
+    async (studentId: string) => {
+      const user = authUserRef.current;
+      if (!user || !user.emailVerified) return;
+      const remaining = savedStudents.filter((s) => s.id !== studentId);
+      if (remaining.length === 0) return;
+
+      setCloudSyncStatus('syncing');
+      await deleteStudentProfileInCloud(user.uid, studentId);
+      setSavedStudents(remaining);
+      if (activeStudentIdRef.current === studentId) {
+        const nextStudent = remaining[0];
+        setActiveStudentId(nextStudent.id);
+        const nextProg = recordToProgress(nextStudent, []);
+        setProgress(nextProg);
+        lastSyncedHashRef.current = computeSyncHash(nextProg);
+        await setActiveStudentRef(user.uid, nextStudent.id);
+      }
+      setCloudSyncStatus('synced');
+    },
+    [savedStudents]
+  );
+
   const completeOnboarding = useCallback(
     (studentName: string, selectedGrade: GradeLevel, schoolGovernorate: string) => {
-      setProgress((prev) => ({
-        ...prev,
-        studentName: studentName.trim() || 'عزيز',
-        selectedGrade,
-        schoolGovernorate: schoolGovernorate.trim() || prev.schoolGovernorate,
-        isProfileConfigured: true,
-      }));
+      setProgress((prev) => {
+        const nextState: StudentProgress = {
+          ...prev,
+          studentName: studentName.trim() || 'عزيز',
+          selectedGrade,
+          schoolGovernorate: schoolGovernorate.trim() || prev.schoolGovernorate,
+          isProfileConfigured: true,
+        };
+        scheduleCloudSync(nextState, true);
+        return nextState;
+      });
     },
-    []
+    [scheduleCloudSync]
   );
 
   const reopenOnboarding = useCallback(() => {
@@ -260,10 +863,11 @@ export function useStudentProgress() {
         reason: 'مكافأة العودة النشيطة إلى المنارة',
         unlockedBadges: unlockedNow,
       });
+      scheduleCloudSync(nextState, false);
       return nextState;
     });
     setReminderDismissed(true);
-  }, []);
+  }, [scheduleCloudSync]);
 
   const simulateAbsence = useCallback((daysAgo: number) => {
     setProgress((prev) => ({
@@ -273,49 +877,54 @@ export function useStudentProgress() {
     setReminderDismissed(false);
   }, []);
 
-  const markStepCompleted = useCallback((lessonId: string, stepIndex: number) => {
-    setProgress((prev) => {
-      const existing = prev.completedSteps[lessonId] || [];
-      if (existing.includes(stepIndex)) return prev;
+  const markStepCompleted = useCallback(
+    (lessonId: string, stepIndex: number) => {
+      setProgress((prev) => {
+        const existing = prev.completedSteps[lessonId] || [];
+        if (existing.includes(stepIndex)) return prev;
 
-      const today = getTodayKey();
-      const basePoints = 15;
-      let nextState: StudentProgress = {
-        ...prev,
-        points: prev.points + basePoints,
-        lastActiveDate: today,
-        completedSteps: {
-          ...prev.completedSteps,
-          [lessonId]: [...existing, stepIndex],
-        },
-      };
-
-      const unlockedNow = evaluateNewBadges(nextState);
-      let bonusSum = 0;
-      if (unlockedNow.length > 0) {
-        const nextUnlocked = { ...nextState.unlockedBadges };
-        for (const b of unlockedNow) {
-          nextUnlocked[b.id] = today;
-          bonusSum += b.bonusPoints;
-        }
-        nextState = {
-          ...nextState,
-          points: nextState.points + bonusSum,
-          unlockedBadges: nextUnlocked,
-          equippedBadgeId: nextState.equippedBadgeId ?? unlockedNow[0].id,
+        const today = getTodayKey();
+        const basePoints = 15;
+        let nextState: StudentProgress = {
+          ...prev,
+          points: prev.points + basePoints,
+          lastActiveDate: today,
+          completedSteps: {
+            ...prev.completedSteps,
+            [lessonId]: [...existing, stepIndex],
+          },
         };
-      }
 
-      setRewardNotification({
-        id: `${Date.now()}`,
-        pointsEarned: basePoints + bonusSum,
-        reason: 'إتمام خطوة استكشاف في المختبر التفاعلي',
-        unlockedBadges: unlockedNow,
+        const unlockedNow = evaluateNewBadges(nextState);
+        let bonusSum = 0;
+        if (unlockedNow.length > 0) {
+          const nextUnlocked = { ...nextState.unlockedBadges };
+          for (const b of unlockedNow) {
+            nextUnlocked[b.id] = today;
+            bonusSum += b.bonusPoints;
+          }
+          nextState = {
+            ...nextState,
+            points: nextState.points + bonusSum,
+            unlockedBadges: nextUnlocked,
+            equippedBadgeId: nextState.equippedBadgeId ?? unlockedNow[0].id,
+          };
+        }
+
+        setRewardNotification({
+          id: `${Date.now()}`,
+          pointsEarned: basePoints + bonusSum,
+          reason: 'إتمام خطوة استكشاف في المختبر التفاعلي',
+          unlockedBadges: unlockedNow,
+        });
+
+        // Debounce step completions (8.5s) to avoid hammering Firestore on multi-step exploration
+        scheduleCloudSync(nextState, false);
+        return nextState;
       });
-
-      return nextState;
-    });
-  }, []);
+    },
+    [scheduleCloudSync]
+  );
 
   const recordLessonResult = useCallback(
     (
@@ -401,7 +1010,7 @@ export function useStudentProgress() {
 
         nextState = {
           ...nextState,
-          activityLog: [newEntry, ...prev.activityLog].slice(0, 25),
+          activityLog: [newEntry, ...prev.activityLog].slice(0, 30),
         };
 
         setRewardNotification({
@@ -418,53 +1027,226 @@ export function useStudentProgress() {
           unlockedBadges: unlockedNow,
         });
 
+        scheduleCloudSync(nextState, true);
+        if (
+          authUserRef.current &&
+          authUserRef.current.emailVerified &&
+          activeStudentIdRef.current
+        ) {
+          void saveStudentActivityToCloud(
+            authUserRef.current.uid,
+            activeStudentIdRef.current,
+            newEntry
+          );
+        }
+
         return nextState;
       });
     },
-    []
+    [scheduleCloudSync]
   );
 
-  const equipBadge = useCallback((badgeId: string) => {
-    setProgress((prev) => {
-      if (!prev.unlockedBadges[badgeId]) return prev;
-      return {
-        ...prev,
-        equippedBadgeId: badgeId,
-      };
-    });
-  }, []);
+  const submitPeerChallengeResult = useCallback(
+    async (input: PeerChallengeSubmitInput): Promise<PeerChallengeRecord | null> => {
+      const today = getTodayKey();
+      const challengerWon = input.challengerScore > input.opponentTargetScore;
+      let createdChallenge: PeerChallengeRecord | null = null;
+
+      setProgress((prev) => {
+        const nextWins = (prev.challengeWins ?? 0) + (challengerWon ? 1 : 0);
+        let nextState: StudentProgress = {
+          ...prev,
+          points: prev.points + input.pointsEarned,
+          lastActiveDate: today,
+          expressChallengesCompleted: prev.expressChallengesCompleted + 1,
+          challengeWins: nextWins,
+        };
+
+        const unlockedNow = evaluateNewBadges(nextState);
+        let badgeBonusTotal = 0;
+        if (unlockedNow.length > 0) {
+          const nextUnlocked = { ...nextState.unlockedBadges };
+          for (const b of unlockedNow) {
+            nextUnlocked[b.id] = today;
+            badgeBonusTotal += b.bonusPoints;
+          }
+          nextState = {
+            ...nextState,
+            points: nextState.points + badgeBonusTotal,
+            unlockedBadges: nextUnlocked,
+            equippedBadgeId: nextState.equippedBadgeId ?? unlockedNow[0].id,
+          };
+        }
+
+        const totalAwarded = input.pointsEarned + badgeBonusTotal;
+        const newEntry: ActivityEntry = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          lessonId: `peer-duel-${input.opponentStudentId}`,
+          grade: prev.selectedGrade,
+          title: `مبارزة معرفية ضد ${input.opponentName}`,
+          subjectId: 'math',
+          score: input.challengerScore,
+          total: input.totalQuestions,
+          pointsEarned: totalAwarded,
+          date: today,
+          mode: 'express',
+        };
+
+        nextState = {
+          ...nextState,
+          activityLog: [newEntry, ...prev.activityLog].slice(0, 30),
+        };
+
+        setRewardNotification({
+          id: `${Date.now()}`,
+          pointsEarned: totalAwarded,
+          reason: challengerWon
+            ? `تفوّق في تحدّي الزميل ${input.opponentName} (${input.challengerScore}/${input.totalQuestions})`
+            : `مشاركة مشرّفة ضد ${input.opponentName} (${input.challengerScore}/${input.totalQuestions})`,
+          unlockedBadges: unlockedNow,
+        });
+
+        scheduleCloudSync(nextState, true);
+        return nextState;
+      });
+
+      const user = authUserRef.current;
+      const sid = activeStudentIdRef.current;
+      const currProg = progressRef.current;
+
+      if (user && user.emailVerified && sid) {
+        try {
+          createdChallenge = await recordPeerChallengeToCloud(user.uid, {
+            challengerStudentId: sid,
+            challengerName: currProg.studentName || 'عزيز',
+            opponentOwnerId: input.opponentOwnerId || user.uid,
+            opponentStudentId: input.opponentStudentId,
+            opponentName: input.opponentName,
+            grade: currProg.selectedGrade,
+            challengerScore: input.challengerScore,
+            opponentTargetScore: input.opponentTargetScore,
+            totalQuestions: input.totalQuestions,
+            challengerWon,
+          });
+          setCloudChallenges((prev) => [createdChallenge!, ...prev].slice(0, 15));
+        } catch {
+          // Non-fatal
+        }
+      } else {
+        createdChallenge = {
+          id: `local_chal_${Date.now()}`,
+          ownerId: 'local',
+          challengerStudentId: 'local',
+          challengerName: currProg.studentName || 'عزيز',
+          opponentOwnerId: input.opponentOwnerId || 'practice',
+          opponentStudentId: input.opponentStudentId,
+          opponentName: input.opponentName,
+          grade: currProg.selectedGrade,
+          challengerScore: input.challengerScore,
+          opponentTargetScore: input.opponentTargetScore,
+          totalQuestions: input.totalQuestions,
+          challengerWon,
+          createdAtIso: new Date().toISOString(),
+        };
+        setLocalChallenges((prev) => [createdChallenge!, ...prev].slice(0, 15));
+      }
+
+      return createdChallenge;
+    },
+    [scheduleCloudSync]
+  );
+
+  const equipBadge = useCallback(
+    (badgeId: string) => {
+      setProgress((prev) => {
+        if (!prev.unlockedBadges[badgeId]) return prev;
+        const nextState = {
+          ...prev,
+          equippedBadgeId: badgeId,
+        };
+        scheduleCloudSync(nextState, false);
+        return nextState;
+      });
+    },
+    [scheduleCloudSync]
+  );
 
   const updateStudentProfile = useCallback(
     (studentName: string, schoolGovernorate: string, selectedGrade?: GradeLevel) => {
-      setProgress((prev) => ({
-        ...prev,
-        studentName: studentName.trim() || prev.studentName,
-        schoolGovernorate: schoolGovernorate.trim() || prev.schoolGovernorate,
-        selectedGrade: selectedGrade ?? prev.selectedGrade,
-        isProfileConfigured: true,
-      }));
+      setProgress((prev) => {
+        const nextState: StudentProgress = {
+          ...prev,
+          studentName: studentName.trim() || prev.studentName,
+          schoolGovernorate: schoolGovernorate.trim() || prev.schoolGovernorate,
+          selectedGrade: selectedGrade ?? prev.selectedGrade,
+          isProfileConfigured: true,
+        };
+        scheduleCloudSync(nextState, true);
+        return nextState;
+      });
+    },
+    [scheduleCloudSync]
+  );
+
+  const resetProgress = useCallback(() => {
+    setProgress((prev) => {
+      const nextState: StudentProgress = {
+        studentName: prev.studentName,
+        selectedGrade: prev.selectedGrade,
+        schoolGovernorate: prev.schoolGovernorate,
+        isProfileConfigured: prev.isProfileConfigured,
+        points: 0,
+        streakDays: 1,
+        lastActiveDate: getTodayKey(),
+        completedLessons: {},
+        completedSteps: {},
+        unlockedBadges: {},
+        equippedBadgeId: null,
+        expressChallengesCompleted: 0,
+        challengeWins: 0,
+        activityLog: [],
+      };
+      scheduleCloudSync(nextState, true);
+      return nextState;
+    });
+    setRewardNotification(null);
+    setReminderDismissed(true);
+  }, [scheduleCloudSync]);
+
+  const saveProgressReportSnapshot = useCallback(
+    async (input: CreateProgressReportInput): Promise<string> => {
+      const user = authUserRef.current;
+      const sid = activeStudentIdRef.current;
+      if (user && user.emailVerified && sid) {
+        setCloudSyncStatus('syncing');
+        const created = await saveProgressReportToCloud(user.uid, sid, input);
+        setCloudReports((prev) => [created, ...prev].slice(0, 25));
+        setCloudSyncStatus('synced');
+        return created.id;
+      }
+
+      const localId = `local_rep_${Date.now()}`;
+      const newReport: SavedProgressReport = {
+        id: localId,
+        studentId: 'local',
+        ...input,
+        createdAtIso: new Date().toISOString(),
+      };
+      setLocalReports((prev) => [newReport, ...prev].slice(0, 25));
+      return localId;
     },
     []
   );
 
-  const resetProgress = useCallback(() => {
-    setProgress((prev) => ({
-      studentName: prev.studentName,
-      selectedGrade: prev.selectedGrade,
-      schoolGovernorate: prev.schoolGovernorate,
-      isProfileConfigured: prev.isProfileConfigured,
-      points: 0,
-      streakDays: 1,
-      lastActiveDate: getTodayKey(),
-      completedLessons: {},
-      completedSteps: {},
-      unlockedBadges: {},
-      equippedBadgeId: null,
-      expressChallengesCompleted: 0,
-      activityLog: [],
-    }));
-    setRewardNotification(null);
-    setReminderDismissed(true);
+  const removeProgressReportSnapshot = useCallback(async (reportId: string) => {
+    const user = authUserRef.current;
+    const sid = activeStudentIdRef.current;
+    if (user && user.emailVerified && sid) {
+      await deleteProgressReportInCloud(user.uid, sid, reportId);
+      setCloudReports((prev) => prev.filter((r) => r.id !== reportId));
+      return;
+    }
+    setLocalReports((prev) => prev.filter((r) => r.id !== reportId));
   }, []);
 
   const today = getTodayKey();
@@ -507,6 +1289,12 @@ export function useStudentProgress() {
     };
   };
 
+  const savedReports =
+    authUser && authUser.emailVerified && activeStudentId ? cloudReports : localReports;
+
+  const peerChallenges =
+    authUser && authUser.emailVerified && activeStudentId ? cloudChallenges : localChallenges;
+
   return {
     progress,
     studentLessons,
@@ -519,6 +1307,27 @@ export function useStudentProgress() {
     earnedBadges,
     levelInfo,
     rewardNotification,
+    authUser,
+    authReady,
+    savedStudents,
+    activeStudentId,
+    savedReports,
+    cloudSyncStatus,
+    cloudError,
+    hasPendingSync,
+    leaderboardEntries,
+    peerChallenges,
+    leaderboardLoading,
+    refreshLeaderboard,
+    submitPeerChallengeResult,
+    flushCloudSyncNow,
+    signInWithGoogle,
+    signOutCloud,
+    selectSavedStudent,
+    createNewStudentProfile,
+    deleteSavedStudent,
+    saveProgressReportSnapshot,
+    removeProgressReportSnapshot,
     completeOnboarding,
     reopenOnboarding,
     dismissRewardNotification,

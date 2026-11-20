@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Award,
   CalendarHeart,
+  FileText,
 } from 'lucide-react';
 import {
   BADGES,
@@ -39,6 +40,7 @@ interface ProgressDashboardProps {
   onResetProgress: () => void;
   onSimulateAbsence: () => void;
   onSelectLesson: (lesson: Lesson) => void;
+  onOpenReports?: () => void;
 }
 
 export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
@@ -55,6 +57,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
   onResetProgress,
   onSimulateAbsence,
   onSelectLesson,
+  onOpenReports,
 }) => {
   const [editingProfile, setEditingProfile] = useState(false);
   const [nameInput, setNameInput] = useState(progress.studentName);
@@ -429,6 +432,17 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                 <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             </div>
+          )}
+
+          {onOpenReports && (
+            <button
+              type="button"
+              onClick={onOpenReports}
+              className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition-colors cursor-pointer"
+            >
+              <FileText className="w-4 h-4 text-sky-600" aria-hidden="true" />
+              افتح تقارير التقدّم المفصّلة وحفظ ملفات التلاميذ
+            </button>
           )}
         </div>
 
