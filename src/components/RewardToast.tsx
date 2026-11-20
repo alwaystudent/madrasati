@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
-import { Award, X, Sparkles } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
+import { Sparkles, X } from 'lucide-react';
 import { RewardNotification } from '../types/curriculum';
-import { BadgeMedallion } from './BadgeMedallion';
+import { playPointsChime } from '../utils/celebrationSound';
+import { BadgeChestModal } from './BadgeChestModal';
 
 interface RewardToastProps {
   notification: RewardNotification | null;
@@ -14,37 +16,48 @@ export const RewardToast: React.FC<RewardToastProps> = ({
   onDismiss,
   onViewBadges,
 }) => {
+  const shouldReduceMotion = useReducedMotion();
+
+  const hasBadges = Boolean(notification && notification.unlockedBadges.length > 0);
+
   useEffect(() => {
-    if (!notification) return;
-    const timeout = window.setTimeout(
-      onDismiss,
-      notification.unlockedBadges.length > 0 ? 7500 : 4500
-    );
+    if (!notification || hasBadges) return;
+    void playPointsChime();
+    const timeout = window.setTimeout(onDismiss, 4500);
     return () => window.clearTimeout(timeout);
-  }, [notification, onDismiss]);
+  }, [notification, hasBadges, onDismiss]);
 
   if (!notification) return null;
 
-  const hasBadges = notification.unlockedBadges.length > 0;
+  if (hasBadges) {
+    return (
+      <BadgeChestModal
+        badges={notification.unlockedBadges}
+        pointsEarned={notification.pointsEarned}
+        reason={notification.reason}
+        onClose={onDismiss}
+        onViewCabinet={onViewBadges}
+      />
+    );
+  }
 
   return (
-    <div
+    <motion.div
       role="status"
       aria-live="polite"
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 16, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       className="fixed bottom-5 left-5 z-40 max-w-sm w-[calc(100%-2.5rem)] bg-white border border-slate-200 shadow-lg rounded-2xl p-4 space-y-3"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
-            {hasBadges ? (
-              <Award className="w-5 h-5 text-amber-600" aria-hidden="true" />
-            ) : (
-              <Sparkles className="w-5 h-5 text-amber-600" aria-hidden="true" />
-            )}
+            <Sparkles className="w-5 h-5 text-amber-600" aria-hidden="true" />
           </div>
           <div>
             <div className="text-sm font-display font-bold text-slate-900">
-              {hasBadges ? 'وسام افتراضي جديد مفتوح!' : 'أحسنت! نقاط تشجيعية جديدة'}
+              أحسنت! نقاط تشجيعية جديدة
             </div>
             <div className="text-xs text-slate-600">{notification.reason}</div>
           </div>
@@ -65,37 +78,6 @@ export const RewardToast: React.FC<RewardToastProps> = ({
           +{notification.pointsEarned} نقطة
         </span>
       </div>
-
-      {hasBadges && (
-        <div className="space-y-2 pt-1">
-          {notification.unlockedBadges.map((badge) => (
-            <div
-              key={badge.id}
-              className="flex items-center gap-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200"
-            >
-              <BadgeMedallion badge={badge} unlocked size="sm" />
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-slate-900 truncate">
-                  {badge.title}
-                </div>
-                <div className="text-xs font-medium text-amber-800">
-                  +{badge.bonusPoints} نقطة إضافية
-                </div>
-              </div>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              onDismiss();
-              onViewBadges();
-            }}
-            className="w-full py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-          >
-            عرض خزانة الأوسمة والنقاط
-          </button>
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 };

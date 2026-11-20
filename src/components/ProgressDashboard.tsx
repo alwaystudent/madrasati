@@ -10,6 +10,7 @@ import {
   Award,
   CalendarHeart,
   FileText,
+  Gift,
 } from 'lucide-react';
 import {
   BADGES,
@@ -18,8 +19,16 @@ import {
   SUBJECTS,
   TUNISIAN_GOVERNORATES,
 } from '../data/tunisianCurriculum';
-import { GradeLevel, Lesson, LevelInfo, StudentProgress, SubjectId } from '../types/curriculum';
+import {
+  BadgeDefinition,
+  GradeLevel,
+  Lesson,
+  LevelInfo,
+  StudentProgress,
+  SubjectId,
+} from '../types/curriculum';
 import { BadgeMedallion } from './BadgeMedallion';
+import { BadgeChestModal } from './BadgeChestModal';
 
 interface ProgressDashboardProps {
   progress: StudentProgress;
@@ -64,6 +73,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
   const [govInput, setGovInput] = useState(progress.schoolGovernorate);
   const [gradeInput, setGradeInput] = useState<GradeLevel>(progress.selectedGrade);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [chestPreviewBadge, setChestPreviewBadge] = useState<BadgeDefinition | null>(null);
 
   const activeGradeMeta =
     GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[2];
@@ -325,13 +335,29 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
 
       {/* Badges Cabinet */}
       <div className="space-y-4">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
-            خزانة الأوسمة الافتراضية ({earnedBadges.length} من {BADGES.length})
-          </h2>
-          <p className="text-sm text-slate-600 leading-relaxed mt-1">
-            يُفتح كل وسام تلقائياً عند إتمام الدروس والتمارين بنجاح، ويمنحك نقاطاً إضافية! اختر وسامك المفضّل لعرضه في بطاقتك.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
+              خزانة الأوسمة الافتراضية ({earnedBadges.length} من {BADGES.length})
+            </h2>
+            <p className="text-sm text-slate-600 leading-relaxed mt-1">
+              يُفتح كل وسام تلقائياً داخل صندوق الأوسمة التفاعلي عند إتمام الدروس والتمارين بنجاح! اختر وسامك المفضّل لعرضه في بطاقتك.
+            </p>
+          </div>
+          {(equippedBadge || earnedBadges.length > 0) && (
+            <button
+              type="button"
+              onClick={() => {
+                const target =
+                  equippedBadge ?? BADGES.find((b) => Boolean(progress.unlockedBadges[b.id])) ?? BADGES[0];
+                setChestPreviewBadge(target);
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Gift className="w-4 h-4" aria-hidden="true" />
+              افتح صندوق الأوسمة بالصوت والمؤثّرات
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -352,7 +378,15 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <BadgeMedallion badge={badge} unlocked={unlocked} size="md" />
+                  <button
+                    type="button"
+                    disabled={!unlocked}
+                    onClick={() => unlocked && setChestPreviewBadge(badge)}
+                    title={unlocked ? 'اضغط لفتح صندوق هذا الوسام' : undefined}
+                    className={unlocked ? 'cursor-pointer transition-transform hover:scale-105 shrink-0' : 'shrink-0'}
+                  >
+                    <BadgeMedallion badge={badge} unlocked={unlocked} size="md" />
+                  </button>
                   <div className="min-w-0 space-y-1">
                     <div className="text-sm font-display font-bold text-slate-900">
                       {badge.title}
@@ -370,15 +404,19 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
                   {unlocked ? (
                     <>
-                      <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
-                        <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-                        مفتوح
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setChestPreviewBadge(badge)}
+                        className="inline-flex items-center gap-1 text-sky-700 hover:text-sky-900 font-semibold cursor-pointer whitespace-nowrap"
+                      >
+                        <Gift className="w-3.5 h-3.5" aria-hidden="true" />
+                        فتح الصندوق
+                      </button>
                       <button
                         type="button"
                         onClick={() => onEquipBadge(badge.id)}
                         disabled={isEquipped}
-                        className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                           isEquipped
                             ? 'bg-amber-600 text-white cursor-default'
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
@@ -388,7 +426,10 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                       </button>
                     </>
                   ) : (
-                    <span className="text-slate-400 font-medium">مقفل — واصل التقدّم</span>
+                    <span className="inline-flex items-center gap-1 text-slate-400 font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5 opacity-40" aria-hidden="true" />
+                      مقفل — واصل التقدّم
+                    </span>
                   )}
                 </div>
               </div>
@@ -542,6 +583,15 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
           )}
         </div>
       </div>
+
+      {chestPreviewBadge && (
+        <BadgeChestModal
+          badges={[chestPreviewBadge]}
+          pointsEarned={chestPreviewBadge.bonusPoints}
+          reason="معاينة وتكريم وسامك المكتسب"
+          onClose={() => setChestPreviewBadge(null)}
+        />
+      )}
     </section>
   );
 };
