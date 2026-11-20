@@ -14,6 +14,10 @@ import { EXTRA_LESSONS_GRADE_3 } from './extraLessonsGrade3';
 import { EXTRA_LESSONS_GRADE_4 } from './extraLessonsGrade4';
 import { EXTRA_LESSONS_GRADE_5 } from './extraLessonsGrade5';
 import { EXTRA_LESSONS_GRADE_6 } from './extraLessonsGrade6';
+import { EXPANSION_MATH_LESSONS } from './expansionMath';
+import { EXPANSION_SCIENCE_LESSONS } from './expansionScience';
+import { EXPANSION_ARABIC_LESSONS } from './expansionArabic';
+import { EXPANSION_FRENCH_LESSONS } from './expansionFrench';
 
 export { BADGES, GRADES, LEVELS, SUBJECTS, TUNISIAN_GOVERNORATES };
 
@@ -73,4 +77,8 @@ export const LESSONS: Lesson[] = [
   ...EXTRA_LESSONS_GRADE_5,
   ...LESSONS_GRADE_6,
   ...EXTRA_LESSONS_GRADE_6,
+  ...EXPANSION_MATH_LESSONS,
+  ...EXPANSION_SCIENCE_LESSONS,
+  ...EXPANSION_ARABIC_LESSONS,
+  ...EXPANSION_FRENCH_LESSONS,
 ].map(enrichFrenchLesson);

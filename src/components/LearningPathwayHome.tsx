@@ -256,20 +256,23 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
             >
               كل المواد ({studentLessons.length})
             </button>
-            {(['math', 'science', 'arabic', 'french'] as SubjectId[]).map((sid) => (
-              <button
-                key={sid}
-                type="button"
-                onClick={() => setSelectedSubject(sid)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                  selectedSubject === sid
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {SUBJECTS[sid].name}
-              </button>
-            ))}
+            {(['math', 'science', 'arabic', 'french'] as SubjectId[]).map((sid) => {
+              const count = studentLessons.filter((l) => l.subjectId === sid).length;
+              return (
+                <button
+                  key={sid}
+                  type="button"
+                  onClick={() => setSelectedSubject(sid)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                    selectedSubject === sid
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {SUBJECTS[sid].name} ({count})
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -360,6 +363,9 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
         {(['math', 'science', 'arabic', 'french'] as SubjectId[]).map((sid) => {
           const meta = SUBJECTS[sid];
           const stats = subjectStats(sid);
+          const subjectExercises = studentLessons
+            .filter((l) => l.subjectId === sid)
+            .reduce((sum, l) => sum + l.exercises.length, 0);
           return (
             <div
               key={sid}
@@ -377,7 +383,7 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
                       {meta.name}
                     </div>
                     <div className="text-xs text-slate-500 font-mono tabular-nums">
-                      {stats.completedLessons}/{stats.totalLessons} دروس
+                      {stats.completedLessons}/{stats.totalLessons} دروس · {subjectExercises} نشاطاً
                     </div>
                   </div>
                 </div>

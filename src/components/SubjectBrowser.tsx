@@ -30,6 +30,7 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
 
   const activeGradeMeta =
     GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[2];
+  const totalExercises = studentLessons.reduce((acc, l) => acc + l.exercises.length, 0);
 
   const filteredLessons = studentLessons.filter((lesson) => {
     const matchSubject = selectedSubject === 'all' || lesson.subjectId === selectedSubject;
@@ -67,7 +68,7 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
               الدروس والمختبرات التفاعلية الخاصة بك
             </h1>
             <p className="text-sm text-slate-600 leading-relaxed">
-              تظهر لك فقط دروس {activeGradeMeta.label} ({studentLessons.length} دروس تفاعلية).
+              تظهر لك فقط دروس {activeGradeMeta.label} ({studentLessons.length} درساً ومختبراً · {totalExercises} نشاطاً وتمريناً).
             </p>
           </div>
 
@@ -100,20 +101,23 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
             >
               جميع المواد ({studentLessons.length})
             </button>
-            {(['math', 'science', 'arabic', 'french'] as SubjectId[]).map((sid) => (
-              <button
-                key={sid}
-                type="button"
-                onClick={() => setSelectedSubject(sid)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  selectedSubject === sid
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {SUBJECTS[sid].name}
-              </button>
-            ))}
+            {(['math', 'science', 'arabic', 'french'] as SubjectId[]).map((sid) => {
+              const count = studentLessons.filter((l) => l.subjectId === sid).length;
+              return (
+                <button
+                  key={sid}
+                  type="button"
+                  onClick={() => setSelectedSubject(sid)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    selectedSubject === sid
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {SUBJECTS[sid].name} ({count})
+                </button>
+              );
+            })}
           </div>
 
           <select
