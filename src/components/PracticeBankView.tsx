@@ -46,11 +46,18 @@ export const PracticeBankView: React.FC<PracticeBankViewProps> = ({
   const [activePresetExam, setActivePresetExam] =
     useState<ComprehensiveExamPreset | null>(null);
 
-  const gradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[2];
-  const comprehensiveExams = useMemo(
-    () => getComprehensiveExams(selectedGrade),
-    [selectedGrade]
-  );
+  const gradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[3];
+  const comprehensiveExams = useMemo(() => {
+    const order: Record<ComprehensiveExamPreset['trimester'], number> = {
+      'الثلاثي الأول': 1,
+      'الثلاثي الثاني': 2,
+      'الثلاثي الثالث': 3,
+      شامل: 4,
+    };
+    return [...getComprehensiveExams(selectedGrade)].sort(
+      (a, b) => (order[a.trimester] ?? 9) - (order[b.trimester] ?? 9)
+    );
+  }, [selectedGrade]);
 
   const matchingExercises: Exercise[] = useMemo(() => {
     const filteredLessons = studentLessons.filter((l) => {
@@ -92,13 +99,13 @@ export const PracticeBankView: React.FC<PracticeBankViewProps> = ({
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Header & Custom Builder */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="bg-white border-2 border-sky-100 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sky-100">
           <div className="space-y-1">
             <div className="text-xs font-semibold text-sky-700">
               بنك التمارين والاختبارات التأليفية الشاملة · منهاج 2026
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
               تدريبات واختبارات {gradeMeta.label}
             </h1>
             <p className="text-sm text-slate-600 leading-relaxed">
@@ -126,8 +133,8 @@ export const PracticeBankView: React.FC<PracticeBankViewProps> = ({
               }}
               className="w-full px-3 py-2.5 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl text-slate-900 cursor-pointer"
             >
-              <option value="all">جميع المواد الأساسية (4 مواد)</option>
-              {(['math', 'science', 'arabic', 'french'] as SubjectId[]).map((sid) => (
+              <option value="all">جميع المواد (5 مواد)</option>
+              {(['math', 'science', 'arabic', 'french', 'social'] as SubjectId[]).map((sid) => (
                 <option key={sid} value={sid}>
                   {SUBJECTS[sid].name}
                 </option>
@@ -247,14 +254,14 @@ export const PracticeBankView: React.FC<PracticeBankViewProps> = ({
       ) : (
         <div className="space-y-6">
           {/* Official Comprehensive Practice Tests */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="bg-white border-2 border-amber-100 rounded-3xl p-5 sm:p-6 space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-amber-100">
               <div className="space-y-1">
                 <h2 className="text-lg sm:text-xl font-display font-bold text-slate-900">
                   الاختبارات التأليفية الرسمية الشاملة ({gradeMeta.shortLabel})
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-600">
-                  امتحانات شاملة لكامل المنهج تجمع المواد الأربع في اختبار واحد مع مكافأة نقاط مضاعفة.
+                  امتحانات شاملة لكامل المنهج تجمع المواد الخمس في اختبار واحد مع مكافأة نقاط مضاعفة.
                 </p>
               </div>
               <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
@@ -267,7 +274,7 @@ export const PracticeBankView: React.FC<PracticeBankViewProps> = ({
               {comprehensiveExams.map((exam) => (
                 <article
                   key={exam.id}
-                  className="p-5 rounded-xl bg-slate-50/70 border border-slate-200 hover:border-sky-300 hover:bg-white transition-colors flex flex-col justify-between space-y-4"
+                  className="p-5 rounded-2xl bg-sky-50/40 border-2 border-sky-100 hover:border-sky-300 hover:bg-white transition-colors flex flex-col justify-between space-y-4"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
@@ -282,14 +289,14 @@ export const PracticeBankView: React.FC<PracticeBankViewProps> = ({
                     <p className="text-sm text-slate-600 leading-relaxed">{exam.description}</p>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-200/80">
+                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-sky-100">
                     <span className="text-xs font-mono font-bold text-amber-700 tabular-nums">
                       مكافأة التفوّق: +{exam.bonusPoints} نقطة
                     </span>
                     <button
                       type="button"
                       onClick={() => startPresetExam(exam)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-sky-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <FileCheck2 className="w-4 h-4" aria-hidden="true" />
                       ابدأ الاختبار الشامل

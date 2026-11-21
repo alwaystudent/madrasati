@@ -58,7 +58,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const [draftName, setDraftName] = useState(progress.studentName);
 
   const equippedBadge = BADGES.find((b) => b.id === progress.equippedBadgeId) ?? null;
-  const activeGradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[2];
+  const activeGradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[3];
 
   const levelProgressPercent =
     levelInfo.nextMinPoints === null
@@ -87,14 +87,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
         <div className="lg:col-span-6 flex flex-col justify-between space-y-6 py-1">
           <div className="space-y-4">
-            <div className="text-xs font-semibold text-sky-700">
+            <div className="text-sm font-semibold text-sky-700">
               منهج الجمهورية التونسية · السنوات من الثالثة إلى السادسة ابتدائي
             </div>
-            <h1 className="text-3xl sm:text-4xl font-display font-extrabold text-slate-900 leading-[1.25] text-balance">
+            <h1 className="text-2xl sm:text-[1.85rem] font-display font-bold text-slate-900 leading-snug text-balance">
               افهم دروس الابتدائي بالتجربة واللعب، واجمع النقاط والأوسمة
             </h1>
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-xl">
-              مختبرات تفاعلية في الرياضيات والإيقاظ العلمي، وألعاب لغوية في العربية والفرنسية مصممة في مهمات قصيرة من 4 دقائق تمنحك نقاطاً فورية وأوسمة افتراضية مع كل إنجاز.
+            <p className="text-sm sm:text-base font-medium text-slate-600 leading-relaxed max-w-xl">
+              مختبرات تفاعلية في الرياضيات والإيقاظ العلمي، وألعاب لغوية في العربية والفرنسية والمواد الاجتماعية مصممة في مهمات قصيرة تمنحك نقاطاً وأوسمة مع كل إنجاز.
             </p>
 
             {/* Interactive Grade Switcher (3 to 6) */}
@@ -243,22 +243,22 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         </div>
 
         <div className="lg:col-span-6">
-          <div className="relative h-full min-h-[300px] sm:min-h-[380px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 shadow-xs">
+          <div className="relative h-full min-h-[300px] sm:min-h-[380px] rounded-3xl overflow-hidden border-2 border-sky-200 bg-sky-50 shadow-xs">
             {!heroImgFailed ? (
               <>
                 <img
-                  src="/src/assets/images/hero_tunisian_learning_1795189781389.jpg"
-                  alt="مكتب تعليمي مشمس مطل على العمارة التونسية والبحر المتوسط"
+                  src="/src/assets/images/hero_djerba_palm_1795261535045.jpg"
+                  alt="فضاء تعلّم مشرق بنخلة خضراء ومعمار جزيرة جربة وكراسات التلاميذ"
                   referrerPolicy="no-referrer"
                   onError={() => setHeroImgFailed(true)}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 via-slate-900/45 to-transparent p-5 sm:p-6 text-white">
-                  <div className="text-xs font-semibold text-sky-200">
-                    {activeGradeMeta.label} · 4 مواد أساسية
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-sky-950/80 via-sky-950/35 to-transparent p-5 sm:p-6 text-white">
+                  <div className="text-xs font-semibold text-amber-200">
+                    {activeGradeMeta.label} · 5 مواد أساسية ممتعة
                   </div>
                   <div className="mt-1 text-base sm:text-lg font-display font-bold">
-                    مختبرات الرياضيات والإيقاظ العلمي والعربية والفرنسية
+                    مختبرات الرياضيات والعلوم والعربية والفرنسية والمواد الاجتماعية
                   </div>
                 </div>
               </>
@@ -266,7 +266,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-gradient-to-br from-sky-50 to-slate-100">
                 <BookOpen className="w-12 h-12 text-sky-600 mb-3" aria-hidden="true" />
                 <div className="text-lg font-display font-bold text-slate-800">
-                  منصة منارة التعلّم
+                  أكاديمية عزيز
                 </div>
                 <div className="text-sm text-slate-500 mt-1">
                   تعلّم بالمحاكاة والألعاب التفاعلية

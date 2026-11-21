@@ -60,7 +60,7 @@ export const ReturnReminderBanner: React.FC<ReturnReminderBannerProps> = ({
               <span>رسالة ترحيب من فنك الذكي</span>
               <span aria-hidden="true">·</span>
               <span className="font-mono tabular-nums">
-                غياب {daysAbsent} أيام عن المنارة
+                غياب {daysAbsent} أيام عن أكاديمية عزيز
               </span>
             </div>
 

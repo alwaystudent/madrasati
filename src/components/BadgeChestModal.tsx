@@ -266,7 +266,7 @@ export const BadgeChestModal: React.FC<BadgeChestModalProps> = ({
             </div>
             <h2
               id="badge-chest-title"
-              className="text-2xl font-display font-extrabold text-slate-900"
+              className="text-xl sm:text-2xl font-display font-bold text-slate-900"
             >
               {primaryBadge.title}
             </h2>

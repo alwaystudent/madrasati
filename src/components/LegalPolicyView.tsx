@@ -25,18 +25,18 @@ export const LegalPolicyView: React.FC<LegalPolicyViewProps> = ({
   return (
     <section className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
+      <div className="bg-white border-2 border-sky-100 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700">
               <Shield className="w-4 h-4" aria-hidden="true" />
               الشفافية وحماية المتعلّم · متوافق مع الخدمات المرتبطة بالمنصة
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
               سياسة الخصوصية وشروط الاستخدام
             </h1>
             <p className="text-xs sm:text-sm text-slate-600">
-              آخر تحديث: 2026 · تغطّي خدمات Google Firebase وVercel وGoogle Gemini API وتقنيات المتصفّح المحلية.
+              آخر تحديث: 2026 · تغطّي خدمات Google Firebase وGoogle Drive وVercel وGoogle Gemini API ووضع العمل بدون إنترنت (PWA).
             </p>
           </div>
 
@@ -157,14 +157,25 @@ export const LegalPolicyView: React.FC<LegalPolicyViewProps> = ({
             </div>
           </div>
 
-          {/* Control & Deletion Rights */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-3">
-            <h2 className="text-base sm:text-lg font-display font-bold text-slate-900">
-              5. حقوق الوليّ والتلميذ في الوصول والتصدير والحذف
-            </h2>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              يمتلك الوليّ أو صاحب الحساب السيطرة الكاملة على بيانات التلاميذ المسجّلين: يمكن تصدير تقارير التقدّم بصيغتي CSV وPDF في أي وقت من قسم «تقارير التقدّم والحفظ»، كما يمكن حذف أي ملف تلميذ من الحساب السحابي فيتم فوراً حذف سجلاته ونشاطاته وإزالة ظهوره من لوحة الصدارة.
-            </p>
+          {/* Control & Deletion Rights + Google Drive Offline Backup */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-3">
+              <h2 className="text-base sm:text-lg font-display font-bold text-slate-900">
+                5. Google Drive والعمل بدون إنترنت (PWA)
+              </h2>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                عند تفعيل ميزة النسخ الاحتياطي عبر <strong>Google Drive</strong>، تقتصر الصلاحية حصراً على نطاق <code>drive.file</code> للوصول إلى ملف النسخة الاحتياطية الذي تنشئه <strong>أكاديمية عزيز</strong> فقط، ولا تطّلع المنصة على بقية ملفاتك، ويُحفظ رمز الدخول مؤقتاً في ذاكرة الجلسة فقط دون كتابته في أي مخزن دائم. كما يخزّن تطبيق الويب التقدّمي (PWA) الدروس والأنشطة محلياً على جهازك لتعمل بالكامل دون إنترنت.
+              </p>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-3">
+              <h2 className="text-base sm:text-lg font-display font-bold text-slate-900">
+                6. حقوق الوليّ والتلميذ في الوصول والتصدير والحذف
+              </h2>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                يمتلك الوليّ أو صاحب الحساب السيطرة الكاملة على بيانات التلاميذ المسجّلين: يمكن تصدير تقارير التقدّم بصيغتي CSV وPDF أو حفظ نسخة احتياطية كاملة على Google Drive في أي وقت، كما يمكن حذف أي ملف تلميذ من الحساب السحابي فيتم فوراً حذف سجلاته وإزالة ظهوره من لوحة الصدارة.
+              </p>
+            </div>
           </div>
         </div>
       ) : (
@@ -172,7 +183,7 @@ export const LegalPolicyView: React.FC<LegalPolicyViewProps> = ({
           <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
             <FileCheck2 className="w-5 h-5 text-sky-700" aria-hidden="true" />
             <h2 className="text-lg font-display font-bold text-slate-900">
-              ضوابط استخدام منصة منارة التعلّم
+              ضوابط استخدام منصة أكاديمية عزيز
             </h2>
           </div>
 

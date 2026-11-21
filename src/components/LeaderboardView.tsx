@@ -112,7 +112,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   const [refreshCooldownNotice, setRefreshCooldownNotice] = useState<string | null>(null);
 
   const gradeMeta =
-    GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[2];
+    GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[3];
 
   useEffect(() => {
     if (authUser && authUser.emailVerified) {
@@ -277,7 +277,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
     if (duelFinished) {
       return (
         <section className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 text-center space-y-6 shadow-xs">
+          <div className="bg-white border-2 border-amber-200 rounded-3xl p-6 sm:p-8 text-center space-y-6 shadow-xs">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center">
               <Trophy
                 className={`w-8 h-8 ${duelWon ? 'text-amber-500' : 'text-sky-600'}`}
@@ -289,7 +289,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
               <div className="text-xs font-semibold text-sky-700">
                 نتيجة التحدّي السريع · {gradeMeta.shortLabel}
               </div>
-              <h2 className="text-2xl font-display font-extrabold text-slate-900">
+              <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
                 {duelWon
                   ? `تفوّقتَ على ${duelOpponent.displayName}!`
                   : duelDraw
@@ -484,14 +484,14 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Header & Student Personal Standing */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="bg-white border-2 border-sky-100 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-sky-100">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700">
               <Trophy className="w-4 h-4 text-amber-500" aria-hidden="true" />
               ترتيب قسم {gradeMeta.label} · منافسة تربوية آمنة
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
               لوحة الصدارة وتحدّي الزملاء
             </h1>
             <p className="text-sm text-slate-600 leading-relaxed">

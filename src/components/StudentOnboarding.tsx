@@ -41,7 +41,7 @@ export const StudentOnboarding: React.FC<StudentOnboardingProps> = ({
   const [governorate, setGovernorate] = useState(initialGovernorate || 'تونس');
   const [mascotFailed, setMascotFailed] = useState(false);
 
-  const selectedGradeMeta = GRADES.find((g) => g.grade === grade) ?? GRADES[2];
+  const selectedGradeMeta = GRADES.find((g) => g.grade === grade) ?? GRADES[3];
   const gradeLessonsCount = LESSONS.filter((l) => l.grade === grade).length;
   const gradeExercisesCount = LESSONS.filter((l) => l.grade === grade).reduce(
     (sum, l) => sum + l.exercises.length,
@@ -59,14 +59,14 @@ export const StudentOnboarding: React.FC<StudentOnboardingProps> = ({
         {/* Form Card */}
         <form
           onSubmit={handleSubmit}
-          className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6"
+          className="lg:col-span-7 bg-white border-2 border-sky-100 rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6"
         >
           <div className="space-y-2">
             <div className="text-xs font-semibold text-sky-700">
               منصة التعليم الابتدائي بالجمهورية التونسية · منهاج 2026
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 leading-snug">
-              مرحباً بك في منارة التعلّم! سجّل بياناتك لنخصّص لك دروسك
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900 leading-snug">
+              مرحباً بك في أكاديمية عزيز! سجّل بياناتك لنخصّص لك دروسك
             </h1>
             <p className="text-sm text-slate-600 leading-relaxed">
               أدخل اسمك واختر السنة الدراسية التي تدرس فيها، وستظهر لك فقط الدروس والمختبرات والتمارين المبرمجة لقسمك.
@@ -194,10 +194,10 @@ export const StudentOnboarding: React.FC<StudentOnboardingProps> = ({
         </form>
 
         {/* Preview Summary Panel */}
-        <div className="lg:col-span-5 bg-slate-900 text-white rounded-2xl p-6 sm:p-7 flex flex-col justify-between space-y-6">
+        <div className="lg:col-span-5 bg-gradient-to-b from-sky-600 to-sky-700 text-white rounded-3xl p-6 sm:p-7 flex flex-col justify-between space-y-6 shadow-sm">
           <div className="space-y-5">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 overflow-hidden shrink-0 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border-2 border-amber-300 overflow-hidden shrink-0 flex items-center justify-center">
                 {!mascotFailed ? (
                   <img
                     src="/src/assets/images/mascot_fanak_fox_1795189779395.jpg"
@@ -211,55 +211,55 @@ export const StudentOnboarding: React.FC<StudentOnboardingProps> = ({
                 )}
               </div>
               <div className="space-y-0.5">
-                <div className="text-xs font-semibold text-sky-300">رفيقك الذكي في الدراسة</div>
+                <div className="text-xs font-semibold text-amber-200">رفيقك الذكي في الدراسة</div>
                 <div className="text-lg font-display font-bold">
                   أهلاً {name.trim() || 'عزيز'}!
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-2">
-              <div className="text-xs font-semibold text-amber-300">
+            <div className="p-4 rounded-2xl bg-white/15 border border-white/25 space-y-2">
+              <div className="text-xs font-semibold text-amber-200">
                 برنامج {selectedGradeMeta.label} — 2026
               </div>
-              <p className="text-sm text-slate-200 leading-relaxed">
+              <p className="text-sm text-white/95 leading-relaxed">
                 {selectedGradeMeta.subtitle}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700">
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                  <BookOpen className="w-3.5 h-3.5 text-sky-400" aria-hidden="true" />
+              <div className="p-3.5 rounded-2xl bg-white/15 border border-white/25">
+                <div className="flex items-center gap-1.5 text-xs text-sky-100">
+                  <BookOpen className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
                   الدروس التفاعلية
                 </div>
-                <div className="mt-1 text-2xl font-mono font-bold tabular-nums">
+                <div className="mt-1 text-xl font-mono font-bold tabular-nums">
                   {gradeLessonsCount} دروس
                 </div>
               </div>
-              <div className="p-3.5 rounded-xl bg-slate-800/70 border border-slate-700">
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
+              <div className="p-3.5 rounded-2xl bg-white/15 border border-white/25">
+                <div className="flex items-center gap-1.5 text-xs text-sky-100">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
                   بنك التمارين
                 </div>
-                <div className="mt-1 text-2xl font-mono font-bold tabular-nums">
+                <div className="mt-1 text-xl font-mono font-bold tabular-nums">
                   {gradeExercisesCount} تمريناً
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="space-y-2.5 pt-4 border-t border-slate-800 text-xs text-slate-300">
+          <div className="space-y-2.5 pt-4 border-t border-white/20 text-xs text-sky-50">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
-              <span>مسار تعلّم متدرج خطوة بخطوة في المواد الأساسية الأربع</span>
+              <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" aria-hidden="true" />
+              <span>مسار تعلّم متدرج خطوة بخطوة في المواد الخمس</span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+              <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" aria-hidden="true" />
               <span>تحديات سريعة وبنك اختبارات ثلاثية لمتابعة التقدّم</span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+              <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" aria-hidden="true" />
               <span>نقاط فورية وأوسمة افتراضية تشجّع التلميذ يومياً</span>
             </div>
           </div>

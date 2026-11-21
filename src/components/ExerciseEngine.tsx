@@ -8,15 +8,18 @@ import {
   Sparkles,
   Award,
   Volume2,
+  HeartHandshake,
 } from 'lucide-react';
 import { Exercise } from '../types/curriculum';
 import { speakFrenchText } from '../utils/frenchSpeech';
+import { speakArabicText, stopArabicSpeech } from '../utils/arabicSpeech';
 
 interface ExerciseEngineProps {
   exercises: Exercise[];
   onComplete: (score: number, total: number, pointsEarned: number) => void;
   onBackToSim?: () => void;
   modeLabel?: string;
+  supportTip?: string;
 }
 
 export const ExerciseEngine: React.FC<ExerciseEngineProps> = ({
@@ -24,11 +27,13 @@ export const ExerciseEngine: React.FC<ExerciseEngineProps> = ({
   onComplete,
   onBackToSim,
   modeLabel = 'تمارين تفاعلية متنوعة',
+  supportTip,
 }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [comboBonusTotal, setComboBonusTotal] = useState(0);
+  const [easyMode, setEasyMode] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
@@ -44,9 +49,10 @@ export const ExerciseEngine: React.FC<ExerciseEngineProps> = ({
   const exercise = exercises[currentIdx];
 
   const resetCurrentInputs = () => {
+    stopArabicSpeech();
     setSubmitted(false);
     setIsCorrect(false);
-    setShowHint(false);
+    setShowHint(easyMode);
     setSelectedChoiceIdx(null);
     setSelectedBlankChoice(null);
     setOrderedTokens([]);
@@ -240,15 +246,41 @@ export const ExerciseEngine: React.FC<ExerciseEngineProps> = ({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowHint((h) => !h)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
-        >
-          <Lightbulb className="w-3.5 h-3.5" aria-hidden="true" />
-          {showHint ? 'إخفاء تلميح فنك' : 'تلميح فنك الذكي'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !easyMode;
+              setEasyMode(next);
+              if (next) setShowHint(true);
+            }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+              easyMode
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200'
+            }`}
+          >
+            <HeartHandshake className="w-3.5 h-3.5" aria-hidden="true" />
+            {easyMode ? 'الوضع المبسّط مفعل' : 'الوضع المبسّط'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowHint((h) => !h)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Lightbulb className="w-3.5 h-3.5" aria-hidden="true" />
+            {showHint ? 'إخفاء التلميح' : 'تلميح ذكي'}
+          </button>
+        </div>
       </div>
+
+      {supportTip && easyMode && (
+        <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs sm:text-sm text-emerald-950 leading-relaxed">
+          <strong>مساعدة سريعة: </strong>
+          {supportTip}
+        </div>
+      )}
 
       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
         <div
@@ -258,22 +290,40 @@ export const ExerciseEngine: React.FC<ExerciseEngineProps> = ({
       </div>
 
       <div className="space-y-2">
-        <div className="text-xs font-medium text-sky-700">
-          {exercise.type === 'choice' && 'اختيار من متعدد · +20 نقطة'}
-          {exercise.type === 'order' && 'رتّب البطاقات بالضغط عليها بالتسلسل الصحيح · +20 نقطة'}
-          {exercise.type === 'classify' && 'صنّف كل عنصر في المجموعة المناسبة · +20 نقطة'}
-          {exercise.type === 'fill_blank' && 'أكمل الفراغ بالكلمة أو العدد المناسب · +20 نقطة'}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs font-medium text-sky-700">
+            {exercise.type === 'choice' && 'اختيار من متعدد · +20 نقطة'}
+            {exercise.type === 'order' && 'رتّب البطاقات بالضغط عليها بالتسلسل الصحيح · +20 نقطة'}
+            {exercise.type === 'classify' && 'صنّف كل عنصر في المجموعة المناسبة · +20 نقطة'}
+            {exercise.type === 'fill_blank' && 'أكمل الفراغ بالكلمة أو العدد المناسب · +20 نقطة'}
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              exercise.ltr
+                ? speakFrenchText(exercise.prompt, { speed: easyMode ? 'slow' : 'normal' })
+                : speakArabicText(exercise.prompt, easyMode ? 'slow' : 'normal')
+            }
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer"
+          >
+            <Volume2 className="w-3.5 h-3.5" aria-hidden="true" />
+            استمع للسؤال
+          </button>
         </div>
-        <h3 className="text-lg sm:text-xl font-display font-bold text-slate-900 leading-snug">
+        <h3
+          className={`font-display font-bold text-slate-900 leading-snug ${
+            easyMode ? 'text-xl sm:text-2xl' : 'text-lg sm:text-xl'
+          }`}
+        >
           {exercise.prompt}
         </h3>
       </div>
 
-      {showHint && (
+      {(showHint || easyMode) && (
         <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-950">
           <Lightbulb className="w-4 h-4 mt-0.5 text-amber-700 shrink-0" aria-hidden="true" />
           <div>
-            <strong>تلميح فنك: </strong>
+            <strong>تلميح مساعد: </strong>
             {exercise.hint}
           </div>
         </div>

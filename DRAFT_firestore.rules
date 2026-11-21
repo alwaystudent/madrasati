@@ -40,7 +40,7 @@ service cloud.firestore {
     }
 
     function isValidSubject(s) {
-      return s is string && s.size() <= 16 && s in ['math', 'science', 'arabic', 'french'];
+      return s is string && s.size() <= 16 && s in ['math', 'science', 'arabic', 'french', 'social'];
     }
 
     function isValidMode(m) {
@@ -87,8 +87,8 @@ service cloud.firestore {
         && data.points is int && data.points >= 0 && data.points <= 10000000
         && data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 36500
         && isValidDateString(data.lastActiveDate)
-        && data.completedLessons is map && data.completedLessons.keys().size() <= 300
-        && data.completedSteps is map && data.completedSteps.keys().size() <= 300
+        && data.completedLessons is map && data.completedLessons.keys().size() <= 500
+        && data.completedSteps is map && data.completedSteps.keys().size() <= 500
         && data.unlockedBadges is map && data.unlockedBadges.keys().size() <= 30
         && data.equippedBadgeId is string && data.equippedBadgeId.size() <= 60
         && data.expressChallengesCompleted is int && data.expressChallengesCompleted >= 0 && data.expressChallengesCompleted <= 100000
@@ -133,7 +133,7 @@ service cloud.firestore {
           'ownerId', 'studentId', 'studentName', 'selectedGrade', 'schoolGovernorate',
           'periodLabel', 'overallMasteryPercent', 'averageAccuracy', 'totalPoints',
           'streakDays', 'completedLessonsCount', 'totalLessonsCount', 'earnedBadgesCount',
-          'mathMastery', 'scienceMastery', 'arabicMastery', 'frenchMastery',
+          'mathMastery', 'scienceMastery', 'arabicMastery', 'frenchMastery', 'socialMastery',
           'strengthsSummary', 'recommendationsSummary', 'createdAt'
         ])
         && isValidId(data.ownerId)
@@ -155,6 +155,7 @@ service cloud.firestore {
         && data.scienceMastery is int && data.scienceMastery >= 0 && data.scienceMastery <= 100
         && data.arabicMastery is int && data.arabicMastery >= 0 && data.arabicMastery <= 100
         && data.frenchMastery is int && data.frenchMastery >= 0 && data.frenchMastery <= 100
+        && (!('socialMastery' in data.keys()) || (data.socialMastery is int && data.socialMastery >= 0 && data.socialMastery <= 100))
         && data.strengthsSummary is string && data.strengthsSummary.size() <= 400
         && data.recommendationsSummary is string && data.recommendationsSummary.size() <= 500
         && data.createdAt is timestamp;
@@ -215,6 +216,31 @@ service cloud.firestore {
         && data.createdAt is timestamp;
     }
 
+    function isValidParentPreferences(data) {
+      return data.keys().hasAll([
+          'ownerId', 'parentEmail', 'cadence', 'notifyOnBadge',
+          'notifyOnInactivity', 'includeSubjectDetails', 'consentAccepted',
+          'consentUpdatedAtIso', 'lastDigestGeneratedIso', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'parentEmail', 'cadence', 'notifyOnBadge',
+          'notifyOnInactivity', 'includeSubjectDetails', 'consentAccepted',
+          'consentUpdatedAtIso', 'lastDigestGeneratedIso', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.parentEmail is string && data.parentEmail.size() <= 120
+        && data.cadence is string && data.cadence in ['weekly', 'biweekly', 'monthly', 'disabled']
+        && data.notifyOnBadge is bool
+        && data.notifyOnInactivity is bool
+        && data.includeSubjectDetails is bool
+        && data.consentAccepted is bool
+        && data.consentUpdatedAtIso is string && data.consentUpdatedAtIso.size() <= 40
+        && data.lastDigestGeneratedIso is string && data.lastDigestGeneratedIso.size() <= 40
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     // Collection: /users/{userId}
     match /users/{userId} {
       allow get: if isOwner(userId) && isEmailVerified() && isValidId(userId);
@@ -234,6 +260,39 @@ service cloud.firestore {
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly(['activeStudentId', 'updatedAt']);
       allow delete: if false;
+
+      // Subcollection: /users/{userId}/parentPreferences/{prefId} (Strict PII-Isolated Owner-Only)
+      match /parentPreferences/{prefId} {
+        allow get: if isOwner(userId) && isEmailVerified() && isValidId(userId) && isValidId(prefId);
+        allow list: if isSignedIn() && isEmailVerified() && existing().ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isEmailVerified()
+          && isValidId(userId)
+          && isValidId(prefId)
+          && isValidParentPreferences(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.ownerId == request.auth.uid;
+        allow update: if isOwner(userId)
+          && isEmailVerified()
+          && isValidId(userId)
+          && isValidId(prefId)
+          && isValidParentPreferences(incoming())
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'parentEmail', 'cadence', 'notifyOnBadge', 'notifyOnInactivity',
+            'includeSubjectDetails', 'consentAccepted', 'consentUpdatedAtIso',
+            'lastDigestGeneratedIso', 'updatedAt'
+          ]);
+        allow delete: if isOwner(userId)
+          && isEmailVerified()
+          && isValidId(userId)
+          && isValidId(prefId)
+          && existing().ownerId == request.auth.uid;
+      }
 
       // Subcollection: /users/{userId}/students/{studentId}
       match /students/{studentId} {

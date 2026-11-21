@@ -13,11 +13,11 @@ function buildExamPresetsForGrade(grade: GradeLevel): ComprehensiveExamPreset[] 
     .filter((l) => l.trimester === 'الثلاثي الثالث')
     .flatMap((l) => l.exercises);
 
-  // Pick balanced cross-subject questions across all 4 subjects
-  const allBalanced = (['math', 'science', 'arabic', 'french'] as const).flatMap((subj) =>
+  // Pick balanced cross-subject questions across all 5 subjects
+  const allBalanced = (['math', 'science', 'arabic', 'french', 'social'] as const).flatMap((subj) =>
     gradeLessons
       .filter((l) => l.subjectId === subj)
-      .flatMap((l) => l.exercises.slice(0, 4))
+      .flatMap((l) => l.exercises.slice(0, 3))
   );
 
   const gradeTitle =
@@ -29,9 +29,9 @@ function buildExamPresetsForGrade(grade: GradeLevel): ComprehensiveExamPreset[] 
     {
       id: `exam-g${grade}-t1`,
       grade,
-      title: 'امتحان الثلاثي الأول الشامل (4 مواد)',
+      title: 'امتحان الثلاثي الأول الشامل (5 مواد)',
       trimester: 'الثلاثي الأول',
-      description: 'تقييم تأليفي يجمع تمارين مختارة من دروس الثلاثي الأول في الرياضيات والإيقاظ والعربية والفرنسية.',
+      description: 'تقييم تأليفي يجمع تمارين مختارة من دروس الثلاثي الأول في الرياضيات والإيقاظ والعربية والفرنسية والمواد الاجتماعية.',
       durationMinutes: 12,
       bonusPoints: 35,
       exercises: (t1.length >= 8 ? t1 : allBalanced).slice(0, 10),
@@ -39,7 +39,7 @@ function buildExamPresetsForGrade(grade: GradeLevel): ComprehensiveExamPreset[] 
     {
       id: `exam-g${grade}-t2`,
       grade,
-      title: 'امتحان الثلاثي الثاني الشامل (4 مواد)',
+      title: 'امتحان الثلاثي الثاني الشامل (5 مواد)',
       trimester: 'الثلاثي الثاني',
       description: 'اختبار متدرّج يغطي مهارات ومعارف الثلاثي الثاني وفق المنهج التونسي 2026.',
       durationMinutes: 12,
@@ -49,7 +49,7 @@ function buildExamPresetsForGrade(grade: GradeLevel): ComprehensiveExamPreset[] 
     {
       id: `exam-g${grade}-t3`,
       grade,
-      title: 'امتحان الثلاثي الثالث الشامل (4 مواد)',
+      title: 'امتحان الثلاثي الثالث الشامل (5 مواد)',
       trimester: 'الثلاثي الثالث',
       description: 'مراجعة نهائية مركّزة لدروس الثلاثي الثالث مع تصحيح وتفسير فوري لكل سؤال.',
       durationMinutes: 12,
@@ -63,8 +63,8 @@ function buildExamPresetsForGrade(grade: GradeLevel): ComprehensiveExamPreset[] 
       trimester: 'شامل',
       description:
         grade === 6
-          ? 'محاكاة كاملة لامتحان ختم التعليم الأساسي (السيزيام 2026) تشمل المواد الأساسية الأربع بـ 16 سؤالاً متدرّجاً.'
-          : 'اختبار شامل لكامل السنة الدراسية يغطي المواد الأربع بـ 16 تمريناً متنوعاً لقياس الجاهزية الكاملة.',
+          ? 'محاكاة كاملة لامتحان ختم التعليم الأساسي (السيزيام 2026) تشمل المواد الخمس بـ 16 سؤالاً متدرّجاً.'
+          : 'اختبار شامل لكامل السنة الدراسية يغطي المواد الخمس بـ 16 تمريناً متنوعاً لقياس الجاهزية الكاملة.',
       durationMinutes: 18,
       bonusPoints: 70,
       exercises: allBalanced.slice(0, 16),

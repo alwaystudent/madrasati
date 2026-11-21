@@ -152,7 +152,7 @@
         },
         "subjectId": {
           "type": "string",
-          "enum": ["math", "science", "arabic", "french"],
+          "enum": ["math", "science", "arabic", "french", "social"],
           "maxLength": 16
         },
         "score": {
@@ -261,6 +261,9 @@
         "frenchMastery": {
           "type": "integer"
         },
+        "socialMastery": {
+          "type": "integer"
+        },
         "strengthsSummary": {
           "type": "string",
           "maxLength": 400
@@ -292,6 +295,7 @@
         "scienceMastery",
         "arabicMastery",
         "frenchMastery",
+        "socialMastery",
         "strengthsSummary",
         "recommendationsSummary",
         "createdAt"
@@ -436,12 +440,79 @@
         "challengerWon",
         "createdAt"
       ]
+    },
+    "ParentPreference": {
+      "title": "ParentPreference",
+      "description": "Owner-isolated parent follow-up notification preferences and explicit privacy consent.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "parentEmail": {
+          "type": "string",
+          "description": "Parent notification email address (private, never shared publicly).",
+          "maxLength": 120
+        },
+        "cadence": {
+          "type": "string",
+          "enum": ["weekly", "biweekly", "monthly", "disabled"],
+          "maxLength": 16
+        },
+        "notifyOnBadge": {
+          "type": "boolean"
+        },
+        "notifyOnInactivity": {
+          "type": "boolean"
+        },
+        "includeSubjectDetails": {
+          "type": "boolean"
+        },
+        "consentAccepted": {
+          "type": "boolean"
+        },
+        "consentUpdatedAtIso": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "lastDigestGeneratedIso": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "parentEmail",
+        "cadence",
+        "notifyOnBadge",
+        "notifyOnInactivity",
+        "includeSubjectDetails",
+        "consentAccepted",
+        "consentUpdatedAtIso",
+        "lastDigestGeneratedIso",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserAccount" },
       "description": "Account metadata linking an authenticated parent/student to their saved student profiles."
+    },
+    "/users/{userId}/parentPreferences/{prefId}": {
+      "schema": { "$ref": "#/entities/ParentPreference" },
+      "description": "Owner-only private parent notification cadence and email consent settings (strict PII isolation)."
     },
     "/users/{userId}/students/{studentId}": {
       "schema": { "$ref": "#/entities/StudentProfile" },

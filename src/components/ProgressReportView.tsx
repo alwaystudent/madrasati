@@ -8,32 +8,52 @@ import {
   Cloud,
   CloudOff,
   Download,
+  DownloadCloud,
   FileText,
   Flame,
   GraduationCap,
+  HardDrive,
   LogIn,
   LogOut,
   Plus,
   Printer,
+  RefreshCw,
   Save,
   Sparkles,
   Trash2,
   TrendingUp,
+  UploadCloud,
   UserCheck,
   Users,
+  WifiOff,
 } from 'lucide-react';
-import { GRADES, SUBJECTS, TUNISIAN_GOVERNORATES } from '../data/tunisianCurriculum';
+import { GRADES, LESSONS, SUBJECTS, TUNISIAN_GOVERNORATES } from '../data/tunisianCurriculum';
 import { CreateProgressReportInput } from '../services/studentCloudService';
+import {
+  AzizAcademyDriveBackupPayload,
+  connectGoogleDrive,
+  downloadBackupFromGoogleDrive,
+  DRIVE_BACKUP_FILENAME,
+  DriveBackupMetadata,
+  findExistingDriveBackup,
+  getGoogleDriveConnectedEmail,
+  hasDriveAccessToken,
+  uploadBackupToGoogleDrive,
+} from '../services/googleDriveService';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 import {
   CloudSyncStatus,
   GradeLevel,
   Lesson,
   LevelInfo,
+  PeerChallengeRecord,
   SavedProgressReport,
   SavedStudentRecord,
   StudentProgress,
   SubjectId,
 } from '../types/curriculum';
+import { AppreciationCertificate } from './AppreciationCertificate';
 
 interface ProgressReportViewProps {
   progress: StudentProgress;
@@ -53,10 +73,16 @@ interface ProgressReportViewProps {
   savedStudents: SavedStudentRecord[];
   activeStudentId: string | null;
   savedReports: SavedProgressReport[];
+  peerChallenges?: PeerChallengeRecord[];
   cloudSyncStatus: CloudSyncStatus;
   cloudError: string | null;
   hasPendingSync?: boolean;
   onFlushSyncNow?: () => Promise<void>;
+  onRestoreBackup?: (
+    prog: StudentProgress,
+    reps?: SavedProgressReport[],
+    chals?: PeerChallengeRecord[]
+  ) => void;
   onSignInWithGoogle: () => Promise<void>;
   onSignOutCloud: () => Promise<void>;
   onSelectSavedStudent: (studentId: string) => Promise<void>;
@@ -69,6 +95,7 @@ interface ProgressReportViewProps {
   onSaveProgressReport: (input: CreateProgressReportInput) => Promise<string>;
   onDeleteProgressReport: (reportId: string) => Promise<void>;
   onSelectLesson: (lesson: Lesson) => void;
+  onOpenParentFollowUp?: () => void;
 }
 
 function getAppreciationLabel(percent: number, completed: number): {
@@ -103,10 +130,12 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
   savedStudents,
   activeStudentId,
   savedReports,
+  peerChallenges = [],
   cloudSyncStatus,
   cloudError,
   hasPendingSync = false,
   onFlushSyncNow,
+  onRestoreBackup,
   onSignInWithGoogle,
   onSignOutCloud,
   onSelectSavedStudent,
@@ -115,10 +144,26 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
   onSaveProgressReport,
   onDeleteProgressReport,
   onSelectLesson,
+  onOpenParentFollowUp,
 }) => {
+  const isOnline = useOnlineStatus();
+  const { canInstall, isInstalled, isOfflineReady, promptInstall } = usePWAInstall();
+
   const [periodLabel, setPeriodLabel] = useState('التقرير الشامل للمنهاج 2026');
   const [savingReport, setSavingReport] = useState(false);
   const [reportSavedBanner, setReportSavedBanner] = useState<string | null>(null);
+
+  const [driveConnected, setDriveConnected] = useState(() => hasDriveAccessToken());
+  const [driveEmail, setDriveEmail] = useState<string | null>(() =>
+    getGoogleDriveConnectedEmail()
+  );
+  const [existingDriveFile, setExistingDriveFile] = useState<DriveBackupMetadata | null>(
+    null
+  );
+  const [driveBusy, setDriveBusy] = useState(false);
+  const [driveStatusMsg, setDriveStatusMsg] = useState<string | null>(null);
+  const [driveErrorMsg, setDriveErrorMsg] = useState<string | null>(null);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
 
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [newName, setNewName] = useState('');
@@ -131,9 +176,9 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
     useState<SavedProgressReport | null>(null);
 
   const activeGradeMeta =
-    GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[2];
+    GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[3];
 
-  const subjectIds: SubjectId[] = ['math', 'science', 'arabic', 'french'];
+  const subjectIds: SubjectId[] = ['math', 'science', 'arabic', 'french', 'social'];
 
   const subjectSummaries = useMemo(() => {
     return subjectIds.map((sid) => ({
@@ -186,7 +231,7 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
     const strengths = `أعلى أداء مسجّل في مادة ${best.meta.name} بدقة ${best.stats.accuracy}% وإنجاز ${best.stats.completedLessons}/${best.stats.totalLessons} درساً.`;
     const rec =
       weakest.stats.completedLessons === 0
-        ? `يُنصح ببدء استكشاف دروس مادة ${weakest.meta.name} لتحقيق توازن بين المواد الأربع.`
+        ? `يُنصح ببدء استكشاف دروس مادة ${weakest.meta.name} لتحقيق توازن بين المواد الخمس.`
         : weakest.stats.accuracy < 75
         ? `يوصى بمراجعة تمارين ${weakest.meta.name} والتدرّب في بنك التمارين لرفع الدقة الحالية (${weakest.stats.accuracy}%).`
         : `أداء متوازن وممتاز! يُنصح بخوض الامتحان التأليفي الشامل لتعزيز الجاهزية.`;
@@ -205,6 +250,7 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
       const sciS = subjectStats('science');
       const arS = subjectStats('arabic');
       const frS = subjectStats('french');
+      const socS = subjectStats('social');
       await onSaveProgressReport({
         studentName: progress.studentName || 'عزيز',
         selectedGrade: progress.selectedGrade,
@@ -221,6 +267,7 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
         scienceMastery: sciS.completionPercent,
         arabicMastery: arS.completionPercent,
         frenchMastery: frS.completionPercent,
+        socialMastery: socS.completionPercent,
         strengthsSummary,
         recommendationsSummary,
       });
@@ -234,9 +281,176 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
     }
   };
 
+  const buildBackupPayload = (): AzizAcademyDriveBackupPayload => ({
+    schemaVersion: 1,
+    appName: 'أكاديمية عزيز',
+    curriculumYear: 2026,
+    exportedAtIso: new Date().toISOString(),
+    studentProgress: progress,
+    savedReports,
+    peerChallenges,
+    offlineReadyLessonsCount: LESSONS.length,
+  });
+
+  const handleConnectDrive = async () => {
+    setDriveBusy(true);
+    setDriveErrorMsg(null);
+    setDriveStatusMsg(null);
+    try {
+      await connectGoogleDrive();
+      setDriveConnected(true);
+      setDriveEmail(getGoogleDriveConnectedEmail());
+      const existing = await findExistingDriveBackup();
+      setExistingDriveFile(existing);
+      setDriveStatusMsg(
+        existing
+          ? `تم ربط Google Drive بنجاح! توجد نسخة سابقة (${existing.modifiedTime.slice(0, 10)}).`
+          : 'تم ربط حساب Google Drive بنجاح وجاهز لحفظ نسخة التلميذ.'
+      );
+    } catch (err) {
+      setDriveErrorMsg(
+        err instanceof Error ? err.message : 'تعذّر ربط Google Drive. يرجى المحاولة مجدداً.'
+      );
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const handleRequestDriveUpload = async () => {
+    setDriveErrorMsg(null);
+    setDriveStatusMsg(null);
+    setDriveBusy(true);
+    try {
+      if (!hasDriveAccessToken()) {
+        await connectGoogleDrive();
+        setDriveConnected(true);
+        setDriveEmail(getGoogleDriveConnectedEmail());
+      }
+      const existing = existingDriveFile ?? (await findExistingDriveBackup());
+      setExistingDriveFile(existing);
+      if (existing) {
+        setShowOverwriteConfirm(true);
+        setDriveBusy(false);
+        return;
+      }
+      const uploaded = await uploadBackupToGoogleDrive(buildBackupPayload());
+      setExistingDriveFile(uploaded);
+      setDriveStatusMsg(
+        `تم حفظ النسخة الاحتياطية (${DRIVE_BACKUP_FILENAME}) على سحابة Google Drive بنجاح!`
+      );
+    } catch (err) {
+      setDriveErrorMsg(
+        err instanceof Error ? err.message : 'تعذّر رفع النسخة الاحتياطية على Google Drive.'
+      );
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const handleConfirmOverwriteDrive = async () => {
+    if (!existingDriveFile) return;
+    setShowOverwriteConfirm(false);
+    setDriveBusy(true);
+    setDriveErrorMsg(null);
+    try {
+      const updated = await uploadBackupToGoogleDrive(
+        buildBackupPayload(),
+        existingDriveFile.id
+      );
+      setExistingDriveFile(updated);
+      setDriveStatusMsg('تم تحديث النسخة الاحتياطية على سحابة Google Drive بنجاح!');
+    } catch (err) {
+      setDriveErrorMsg(
+        err instanceof Error ? err.message : 'تعذّر تحديث النسخة على Google Drive.'
+      );
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const handleRestoreFromDrive = async () => {
+    setDriveErrorMsg(null);
+    setDriveStatusMsg(null);
+    setDriveBusy(true);
+    try {
+      if (!hasDriveAccessToken()) {
+        await connectGoogleDrive();
+        setDriveConnected(true);
+        setDriveEmail(getGoogleDriveConnectedEmail());
+      }
+      const target = existingDriveFile ?? (await findExistingDriveBackup());
+      setExistingDriveFile(target);
+      if (!target) {
+        setDriveErrorMsg('لم يتم العثور على نسخة احتياطية محفوظة في Google Drive لهذا الحساب.');
+        return;
+      }
+      const payload = await downloadBackupFromGoogleDrive(target.id);
+      if (onRestoreBackup) {
+        onRestoreBackup(
+          payload.studentProgress,
+          payload.savedReports,
+          payload.peerChallenges
+        );
+      }
+      setDriveStatusMsg(
+        `تمت استعادة ملف «${payload.studentProgress.studentName}» بنجاح من Google Drive!`
+      );
+    } catch (err) {
+      setDriveErrorMsg(
+        err instanceof Error ? err.message : 'تعذّر تحميل النسخة الاحتياطية من Google Drive.'
+      );
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const handleDownloadLocalJson = () => {
+    const payload = buildBackupPayload();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = DRIVE_BACKUP_FILENAME;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setDriveStatusMsg('تم تنزيل نسخة احتياطية كاملة بصيغة JSON للعمل بدون نت.');
+  };
+
+  const handleImportLocalJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setDriveErrorMsg(null);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as AzizAcademyDriveBackupPayload;
+      if (!parsed || !parsed.studentProgress || typeof parsed.studentProgress !== 'object') {
+        throw new Error('ملف النسخة الاحتياطية غير صالح.');
+      }
+      if (onRestoreBackup) {
+        onRestoreBackup(
+          parsed.studentProgress,
+          parsed.savedReports,
+          parsed.peerChallenges
+        );
+      }
+      setDriveStatusMsg(
+        `تمت استعادة بيانات «${parsed.studentProgress.studentName}» من الملف المحلي بنجاح!`
+      );
+    } catch (err) {
+      setDriveErrorMsg(
+        err instanceof Error ? err.message : 'تعذّرت قراءة ملف النسخة الاحتياطية.'
+      );
+    }
+  };
+
   const handleExportCsv = () => {
     const lines = [
-      ['تقرير التقدّم التربوي — منارة التعلّم 2026'],
+      ['تقرير التقدّم التربوي — أكاديمية عزيز 2026'],
       ['التلميذ', progress.studentName, 'السنة', activeGradeMeta.label, 'الولاية', progress.schoolGovernorate],
       ['الفترة', periodLabel, 'النقاط', String(progress.points), 'نسبة الإتقان', `${overallMasteryPercent}%`],
       [],
@@ -297,8 +511,8 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Cloud Account & Multi-Student Management Panel */}
-      <div className="no-print bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="no-print bg-white border-2 border-sky-100 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-sky-100">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700">
               {authUser ? (
@@ -312,7 +526,7 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
                   : 'الحفظ السحابي مفعّل — بيانات التلاميذ محفوظة عبر الأجهزة'
                 : 'وضع الحفظ المحلي — سجّل الدخول لحفظ ملفات التلاميذ سحابياً'}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
               حفظ بيانات التلاميذ وتقارير التقدّم
             </h1>
             <p className="text-sm text-slate-600 leading-relaxed">
@@ -530,14 +744,14 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
       </div>
 
       {/* Printable & Saveable Pedagogical Progress Report Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xs">
+      <div className="report-printable bg-white border-2 border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-200">
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 text-xs font-semibold text-sky-700">
               <FileText className="w-4 h-4" aria-hidden="true" />
               تقرير التقدّم البيداغوجي — المنهاج التونسي الرسمي 2026
             </div>
-            <h2 className="text-xl sm:text-2xl font-display font-extrabold text-slate-900">
+            <h2 className="text-lg sm:text-xl font-display font-bold text-slate-900">
               التلميذ: {progress.studentName || 'عزيز'} · {activeGradeMeta.label}
             </h2>
             <div className="text-xs sm:text-sm text-slate-600 flex flex-wrap items-center gap-3">
@@ -588,12 +802,26 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
 
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => {
+                document.body.classList.remove('print-certificate-mode');
+                window.print();
+              }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
             >
               <Printer className="w-4 h-4" aria-hidden="true" />
-              طباعة / PDF
+              طباعة التقرير / PDF
             </button>
+
+            {onOpenParentFollowUp && (
+              <button
+                type="button"
+                onClick={onOpenParentFollowUp}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
+              >
+                <Users className="w-4 h-4" aria-hidden="true" />
+                متابعة ولي الأمر
+              </button>
+            )}
           </div>
         </div>
 
@@ -784,6 +1012,190 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
         </div>
       </div>
 
+      {/* Virtual Appreciation Certificate (Unlocked at 3+ Badges) */}
+      <AppreciationCertificate
+        studentName={progress.studentName || 'عزيز'}
+        gradeLabel={activeGradeMeta.label}
+        governorate={progress.schoolGovernorate || 'تونس'}
+        points={progress.points}
+        streakDays={progress.streakDays}
+        overallMasteryPercent={overallMasteryPercent}
+        unlockedBadges={progress.unlockedBadges}
+      />
+
+      {/* Offline PWA & Google Drive Cloud Backup Card */}
+      <div className="no-print bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700">
+              {!isOnline ? (
+                <WifiOff className="w-4 h-4 text-amber-600" aria-hidden="true" />
+              ) : (
+                <HardDrive className="w-4 h-4 text-teal-600" aria-hidden="true" />
+              )}
+              {!isOnline
+                ? 'أنت الآن في وضع العمل بدون إنترنت — جميع الدروس متاحة محلياً'
+                : isOfflineReady
+                ? 'المنصّة مخبّأة وجاهزة للعمل بدون إنترنت على هذا الجهاز (PWA)'
+                : 'العمل بدون إنترنت والنسخ الاحتياطي الشخصي على Google Drive'}
+            </div>
+            <h2 className="text-lg sm:text-xl font-display font-bold text-slate-900">
+              العمل بدون إنترنت وحفظ النسخة الاحتياطية على سحابة Google Drive
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-3xl">
+              احفظ نسخة احتياطية كاملة لتقدّمك ودروسك الـ {LESSONS.length} على حساب Google Drive الخاص بك لاسترجاعها من أي جهاز في أي وقت، أو ثبّت المنصة كتطبيق يعمل دون اتصال بالإنترنت.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {canInstall && (
+              <button
+                type="button"
+                onClick={() => void promptInstall()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <DownloadCloud className="w-4 h-4" aria-hidden="true" />
+                تثبيت للعمل دون نت
+              </button>
+            )}
+            {isInstalled && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                مثبّت كتطبيق دون نت
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* Google Drive Actions */}
+          <div className="lg:col-span-8 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-display font-bold text-slate-900 flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-sky-700" aria-hidden="true" />
+                مزامنة سحابة التلميذ الخاصة (Google Drive)
+              </div>
+              {driveConnected && driveEmail && (
+                <span className="text-xs font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                  {driveEmail}
+                </span>
+              )}
+            </div>
+
+            {existingDriveFile && (
+              <div className="text-xs text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200 font-mono tabular-nums">
+                الملف على Drive: {existingDriveFile.name} · آخر تعديل:{' '}
+                {existingDriveFile.modifiedTime.slice(0, 10)}
+              </div>
+            )}
+
+            {showOverwriteConfirm && existingDriveFile && (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 space-y-2.5">
+                <p className="text-xs font-semibold text-amber-950">
+                  توجد نسخة احتياطية سابقة على Google Drive بتاريخ{' '}
+                  <span className="font-mono">{existingDriveFile.modifiedTime.slice(0, 10)}</span>. هل تريد استبدالها ببياناتك الحالية؟
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={driveBusy}
+                    onClick={() => void handleConfirmOverwriteDrive()}
+                    className="px-3.5 py-1.5 text-xs font-semibold text-white bg-amber-700 hover:bg-amber-800 rounded-lg cursor-pointer"
+                  >
+                    نعم، استبدال النسخة السابقة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowOverwriteConfirm(false)}
+                    className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              {!driveConnected && (
+                <button
+                  type="button"
+                  disabled={driveBusy || !isOnline}
+                  onClick={() => void handleConnectDrive()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-900 bg-white hover:bg-sky-50 border border-slate-300 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <HardDrive className="w-4 h-4 text-sky-600" aria-hidden="true" />
+                  ربط حساب Google Drive
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={driveBusy || !isOnline}
+                onClick={() => void handleRequestDriveUpload()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <UploadCloud className="w-4 h-4" aria-hidden="true" />
+                {driveBusy ? 'جارٍ المعالجة...' : 'حفظ النسخة على Google Drive'}
+              </button>
+
+              <button
+                type="button"
+                disabled={driveBusy || !isOnline}
+                onClick={() => void handleRestoreFromDrive()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-sky-900 bg-sky-100 hover:bg-sky-200 border border-sky-300 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                استعادة من Google Drive
+              </button>
+            </div>
+          </div>
+
+          {/* Local Offline JSON Package */}
+          <div className="lg:col-span-4 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="text-sm font-display font-bold text-slate-900">
+              ملف الحفظ المحلّي (بدون إنترنت)
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              نزّل ملف النسخة الشاملة على جهازك أو أعد استيراده حتى في غياب الاتصال.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadLocalJson}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                تصدير ملف JSON
+              </button>
+
+              <label className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl cursor-pointer">
+                <UploadCloud className="w-3.5 h-3.5" aria-hidden="true" />
+                استيراد ملف JSON
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={(e) => void handleImportLocalJson(e)}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {driveStatusMsg && (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+            {driveStatusMsg}
+          </div>
+        )}
+
+        {driveErrorMsg && (
+          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-800">
+            {driveErrorMsg}
+          </div>
+        )}
+      </div>
+
       {/* Saved Reports Archive */}
       <div className="no-print bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
         <div className="flex items-center justify-between gap-3">
@@ -874,11 +1286,12 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
 
                   {isExpanded && (
                     <div className="pt-2 border-t border-slate-200 space-y-2 text-xs text-slate-700">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono tabular-nums">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono tabular-nums">
                         <span>الرياضيات: {rep.mathMastery}%</span>
                         <span>الإيقاظ: {rep.scienceMastery}%</span>
                         <span>العربية: {rep.arabicMastery}%</span>
                         <span>الفرنسية: {rep.frenchMastery}%</span>
+                        <span>الاجتماعيات: {rep.socialMastery ?? 0}%</span>
                       </div>
                       <p>
                         <strong>نقاط القوة:</strong> {rep.strengthsSummary}

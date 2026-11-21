@@ -1,6 +1,6 @@
 export type GradeLevel = 3 | 4 | 5 | 6;
 
-export type SubjectId = 'math' | 'science' | 'arabic' | 'french';
+export type SubjectId = 'math' | 'science' | 'arabic' | 'french' | 'social';
 
 export type SimulationType =
   | 'fractions'
@@ -15,7 +15,8 @@ export type SimulationType =
   | 'states_of_matter'
   | 'word_types'
   | 'french_articles'
-  | 'percent_ratio';
+  | 'percent_ratio'
+  | 'social_heritage';
 
 export interface GradeMeta {
   grade: GradeLevel;
@@ -120,6 +121,8 @@ export interface Lesson {
   steps: DiscoveryStep[];
   exercises: Exercise[];
   frenchPhrases?: FrenchPhrase[];
+  supportTip?: string;
+  easyTrack?: boolean;
 }
 
 export interface LessonCompletion {
@@ -142,8 +145,11 @@ export interface ActivityEntry {
   mode: 'lesson' | 'express' | 'exam' | 'french';
 }
 
+export type TrimesterType = 'الثلاثي الأول' | 'الثلاثي الثاني' | 'الثلاثي الثالث';
+
 export interface FrenchVocabCard {
   id: string;
+  trimester?: TrimesterType;
   theme: string;
   frWord: string;
   article?: string;
@@ -155,6 +161,7 @@ export interface FrenchVocabCard {
 
 export interface FrenchListeningItem {
   id: string;
+  trimester?: TrimesterType;
   promptAr: string;
   audioFr: string;
   options: string[];
@@ -178,7 +185,7 @@ export interface GradeFrenchTrainingProgram {
   focusSummary: string;
   vocabCards: FrenchVocabCard[];
   listeningItems: FrenchListeningItem[];
-  grammarExercises: Exercise[];
+  grammarExercises: (Exercise & { trimester?: TrimesterType })[];
   readingPassages: FrenchReadingMiniText[];
 }
 
@@ -312,8 +319,22 @@ export interface SavedProgressReport {
   scienceMastery: number;
   arabicMastery: number;
   frenchMastery: number;
+  socialMastery?: number;
   strengthsSummary: string;
   recommendationsSummary: string;
   createdAtIso: string;
+}
+
+export type ParentNotificationCadence = 'weekly' | 'biweekly' | 'monthly' | 'disabled';
+
+export interface ParentFollowUpPreferences {
+  parentEmail: string;
+  cadence: ParentNotificationCadence;
+  notifyOnBadge: boolean;
+  notifyOnInactivity: boolean;
+  includeSubjectDetails: boolean;
+  consentAccepted: boolean;
+  consentUpdatedAtIso: string;
+  lastDigestGeneratedIso: string;
 }
 

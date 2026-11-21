@@ -13,22 +13,26 @@ import {
   clearAllCloudCaches,
   CreateProgressReportInput,
   createStudentProfileInCloud,
+  deleteParentPreferencesInCloud,
   deleteProgressReportInCloud,
   deleteStudentProfileInCloud,
   ensureUserAccount,
   fetchGradeLeaderboardOnce,
+  fetchParentPreferencesOnce,
   fetchPeerChallengesOnce,
   fetchProgressReportsOnce,
   fetchStudentActivitiesOnce,
   fetchUserStudentsOnce,
   generateSafeId,
   recordPeerChallengeToCloud,
+  saveParentPreferencesToCloud,
   saveProgressReportToCloud,
   saveStudentActivityToCloud,
   setActiveStudentRef,
   syncStudentProgressToCloud,
   upsertLeaderboardEntry,
 } from '../services/studentCloudService';
+import { clearDriveAccessToken } from '../services/googleDriveService';
 import {
   ActivityEntry,
   BadgeDefinition,
@@ -36,6 +40,7 @@ import {
   GradeLevel,
   LeaderboardEntry,
   LevelInfo,
+  ParentFollowUpPreferences,
   PeerChallengeRecord,
   RewardNotification,
   SavedProgressReport,
@@ -47,6 +52,7 @@ import {
 const STORAGE_KEY = 'manarat_khamisa_progress_v3';
 const LOCAL_REPORTS_KEY = 'manarat_khamisa_local_reports_v1';
 const LOCAL_CHALLENGES_KEY = 'manarat_khamisa_local_challenges_v1';
+const LOCAL_PARENT_PREFS_KEY = 'aziz_academy_parent_prefs_v1';
 const SYNC_DEBOUNCE_MS = 8500; // Batch rapid progress changes into 1 Firestore write
 const LEADERBOARD_REFRESH_COOLDOWN_MS = 15000;
 
@@ -65,18 +71,29 @@ export function calculateDaysBetween(pastDateStr: string, currentDateStr: string
   return Math.max(0, Math.floor((currMs - pastMs) / (1000 * 60 * 60 * 24)));
 }
 
+const createDefaultParentPrefs = (): ParentFollowUpPreferences => ({
+  parentEmail: '',
+  cadence: 'weekly',
+  notifyOnBadge: true,
+  notifyOnInactivity: true,
+  includeSubjectDetails: true,
+  consentAccepted: false,
+  consentUpdatedAtIso: '',
+  lastDigestGeneratedIso: '',
+});
+
 const createInitialProgress = (): StudentProgress => {
   const threeDaysAgo = getDaysAgoKey(3);
   return {
     studentName: 'عزيز',
-    selectedGrade: 5,
+    selectedGrade: 6,
     schoolGovernorate: 'تونس',
     isProfileConfigured: false,
     points: 115,
     streakDays: 3,
     lastActiveDate: threeDaysAgo,
     completedLessons: {
-      'math-fractions': {
+      'g6-math-percent': {
         bestScore: 4,
         totalQuestions: 5,
         attempts: 1,
@@ -84,8 +101,7 @@ const createInitialProgress = (): StudentProgress => {
       },
     },
     completedSteps: {
-      'math-fractions': [0, 1, 2],
-      'science-circuit': [0],
+      'g6-math-percent': [0, 1],
     },
     unlockedBadges: {
       'first-step': threeDaysAgo,
@@ -96,9 +112,9 @@ const createInitialProgress = (): StudentProgress => {
     activityLog: [
       {
         id: 'seed-1',
-        lessonId: 'math-fractions',
-        grade: 5,
-        title: 'الأعداد الكسرية والمقارنة والاختزال',
+        lessonId: 'g6-math-percent',
+        grade: 6,
+        title: 'النسبة المئوية والتخفيضات والتناسب (مناظرة 2026)',
         subjectId: 'math',
         score: 4,
         total: 5,
@@ -112,13 +128,17 @@ const createInitialProgress = (): StudentProgress => {
 
 function normalizeProgress(raw: Partial<StudentProgress>): StudentProgress {
   const fallback = createInitialProgress();
+  const isConfigured =
+    typeof raw.isProfileConfigured === 'boolean' ? raw.isProfileConfigured : false;
   const validGrade: GradeLevel =
     raw.selectedGrade === 3 ||
     raw.selectedGrade === 4 ||
     raw.selectedGrade === 5 ||
     raw.selectedGrade === 6
-      ? raw.selectedGrade
-      : 5;
+      ? !isConfigured && raw.selectedGrade === 5
+        ? 6
+        : raw.selectedGrade
+      : 6;
 
   const activityLog: ActivityEntry[] = Array.isArray(raw.activityLog)
     ? raw.activityLog.map((entry) => ({
@@ -126,7 +146,7 @@ function normalizeProgress(raw: Partial<StudentProgress>): StudentProgress {
         grade:
           entry.grade === 3 || entry.grade === 4 || entry.grade === 5 || entry.grade === 6
             ? entry.grade
-            : 5,
+            : 6,
       }))
     : fallback.activityLog;
 
@@ -143,8 +163,7 @@ function normalizeProgress(raw: Partial<StudentProgress>): StudentProgress {
     studentName: cleanName,
     selectedGrade: validGrade,
     challengeWins: typeof raw.challengeWins === 'number' ? raw.challengeWins : 0,
-    isProfileConfigured:
-      typeof raw.isProfileConfigured === 'boolean' ? raw.isProfileConfigured : false,
+    isProfileConfigured: isConfigured,
     activityLog,
   };
 }
@@ -347,6 +366,19 @@ export function useStudentProgress() {
     return [];
   });
 
+  const [parentPrefs, setParentPrefs] = useState<ParentFollowUpPreferences>(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_PARENT_PREFS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<ParentFollowUpPreferences>;
+        return { ...createDefaultParentPrefs(), ...parsed };
+      }
+    } catch {
+      // ignore
+    }
+    return createDefaultParentPrefs();
+  });
+
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [savedStudents, setSavedStudents] = useState<SavedStudentRecord[]>([]);
@@ -401,6 +433,14 @@ export function useStudentProgress() {
       // Ignore storage quota errors
     }
   }, [localChallenges]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_PARENT_PREFS_KEY, JSON.stringify(parentPrefs));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [parentPrefs]);
 
   const flushCloudSyncNow = useCallback(async () => {
     if (syncTimerRef.current !== null) {
@@ -537,6 +577,7 @@ export function useStudentProgress() {
       setAuthReady(true);
 
       if (!user || !user.emailVerified) {
+        clearDriveAccessToken();
         setSavedStudents([]);
         setActiveStudentId(null);
         setCloudReports([]);
@@ -554,7 +595,13 @@ export function useStudentProgress() {
 
       try {
         const preferredStudentId = await ensureUserAccount(user.uid);
-        const existingStudents = await fetchUserStudentsOnce(user.uid);
+        const [existingStudents, cloudParentPrefs] = await Promise.all([
+          fetchUserStudentsOnce(user.uid),
+          fetchParentPreferencesOnce(user.uid).catch(() => null),
+        ]);
+        if (cloudParentPrefs) {
+          setParentPrefs(cloudParentPrefs);
+        }
 
         if (existingStudents.length === 0) {
           const newId = generateSafeId('stu');
@@ -761,6 +808,7 @@ export function useStudentProgress() {
       if (pendingProgressRef.current) {
         await flushCloudSyncNow();
       }
+      clearDriveAccessToken();
       await signOut(auth);
       setActiveStudentId(null);
       setSavedStudents([]);
@@ -939,7 +987,7 @@ export function useStudentProgress() {
       setRewardNotification({
         id: `${Date.now()}`,
         pointsEarned: bonus + badgeBonus,
-        reason: 'مكافأة العودة النشيطة إلى المنارة',
+        reason: 'مكافأة العودة النشيطة إلى أكاديمية عزيز',
         unlockedBadges: unlockedNow,
       });
       scheduleCloudSync(nextState, false);
@@ -1328,6 +1376,57 @@ export function useStudentProgress() {
     setLocalReports((prev) => prev.filter((r) => r.id !== reportId));
   }, []);
 
+  const saveParentPrefs = useCallback(
+    async (nextPrefs: ParentFollowUpPreferences): Promise<void> => {
+      setParentPrefs(nextPrefs);
+      const user = authUserRef.current;
+      if (user && user.emailVerified) {
+        setCloudSyncStatus('syncing');
+        await saveParentPreferencesToCloud(user.uid, nextPrefs);
+        setCloudSyncStatus('synced');
+      }
+    },
+    []
+  );
+
+  const clearParentPrefs = useCallback(async (): Promise<void> => {
+    const reset = createDefaultParentPrefs();
+    setParentPrefs(reset);
+    try {
+      localStorage.removeItem(LOCAL_PARENT_PREFS_KEY);
+    } catch {
+      // ignore
+    }
+    const user = authUserRef.current;
+    if (user && user.emailVerified) {
+      setCloudSyncStatus('syncing');
+      await deleteParentPreferencesInCloud(user.uid);
+      setCloudSyncStatus('synced');
+    }
+  }, []);
+
+  const restoreFromBackup = useCallback(
+    (
+      restoredProgress: StudentProgress,
+      restoredReports?: SavedProgressReport[],
+      restoredChallenges?: PeerChallengeRecord[]
+    ) => {
+      const normalized = normalizeProgress({
+        ...restoredProgress,
+        isProfileConfigured: true,
+      });
+      setProgress(normalized);
+      if (Array.isArray(restoredReports) && restoredReports.length > 0) {
+        setLocalReports(restoredReports.slice(0, 25));
+      }
+      if (Array.isArray(restoredChallenges) && restoredChallenges.length > 0) {
+        setLocalChallenges(restoredChallenges.slice(0, 15));
+      }
+      scheduleCloudSync(normalized, true);
+    },
+    [scheduleCloudSync]
+  );
+
   const today = getTodayKey();
   const daysAbsent = calculateDaysBetween(progress.lastActiveDate, today);
   const showReturnReminder = daysAbsent > 2 && !reminderDismissed;
@@ -1418,5 +1517,9 @@ export function useStudentProgress() {
     equipBadge,
     updateStudentProfile,
     resetProgress,
+    restoreFromBackup,
+    parentPrefs,
+    saveParentPrefs,
+    clearParentPrefs,
   };
 }

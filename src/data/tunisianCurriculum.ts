@@ -18,8 +18,31 @@ import { EXPANSION_MATH_LESSONS } from './expansionMath';
 import { EXPANSION_SCIENCE_LESSONS } from './expansionScience';
 import { EXPANSION_ARABIC_LESSONS } from './expansionArabic';
 import { EXPANSION_FRENCH_LESSONS } from './expansionFrench';
+import { EXPANSION_SOCIAL_LESSONS } from './expansionSocialStudies';
+import { EXPANSION_REMEDIAL_2026_LESSONS } from './expansionRemedial2026';
+import { EXPANSION_FULL_YEAR_2026_LESSONS } from './expansionFullYear2026';
 
 export { BADGES, GRADES, LEVELS, SUBJECTS, TUNISIAN_GOVERNORATES };
+
+export const TRIMESTERS: ('الثلاثي الأول' | 'الثلاثي الثاني' | 'الثلاثي الثالث')[] = [
+  'الثلاثي الأول',
+  'الثلاثي الثاني',
+  'الثلاثي الثالث',
+];
+
+export const TRIMESTER_ORDER: Record<'الثلاثي الأول' | 'الثلاثي الثاني' | 'الثلاثي الثالث', number> = {
+  'الثلاثي الأول': 1,
+  'الثلاثي الثاني': 2,
+  'الثلاثي الثالث': 3,
+};
+
+const SUBJECT_SORT_ORDER: Record<Lesson['subjectId'], number> = {
+  math: 1,
+  science: 2,
+  arabic: 3,
+  french: 4,
+  social: 5,
+};
 
 const BASE_FRENCH_PHRASES: Record<string, FrenchPhrase[]> = {
   'g3-french-articles': [
@@ -81,4 +104,15 @@ export const LESSONS: Lesson[] = [
   ...EXPANSION_SCIENCE_LESSONS,
   ...EXPANSION_ARABIC_LESSONS,
   ...EXPANSION_FRENCH_LESSONS,
-].map(enrichFrenchLesson);
+  ...EXPANSION_SOCIAL_LESSONS,
+  ...EXPANSION_REMEDIAL_2026_LESSONS,
+  ...EXPANSION_FULL_YEAR_2026_LESSONS,
+]
+  .map(enrichFrenchLesson)
+  .sort((a, b) => {
+    if (a.grade !== b.grade) return a.grade - b.grade;
+    const tDiff = (TRIMESTER_ORDER[a.trimester] ?? 9) - (TRIMESTER_ORDER[b.trimester] ?? 9);
+    if (tDiff !== 0) return tDiff;
+    return (SUBJECT_SORT_ORDER[a.subjectId] ?? 9) - (SUBJECT_SORT_ORDER[b.subjectId] ?? 9);
+  });
+

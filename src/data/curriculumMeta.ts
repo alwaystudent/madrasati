@@ -101,6 +101,16 @@ export const SUBJECTS: Record<SubjectId, SubjectMeta> = {
     accentBorder: 'border-indigo-200',
     barColor: 'bg-indigo-600',
   },
+  social: {
+    id: 'social',
+    name: 'المواد الاجتماعية',
+    frenchName: 'Histoire, Géographie & Civisme',
+    description: 'التاريخ والجغرافيا والتربية المدنية بالجمهورية التونسية بأسلوب قصصي وخرائط مبسطة.',
+    accentText: 'text-teal-700',
+    accentBg: 'bg-teal-50',
+    accentBorder: 'border-teal-200',
+    barColor: 'bg-teal-600',
+  },
 };
 
 export const LEVELS: LevelInfo[] = [
@@ -108,7 +118,7 @@ export const LEVELS: LevelInfo[] = [
   { level: 2, title: 'باحث ذكي', minPoints: 100, nextMinPoints: 250 },
   { level: 3, title: 'فارس المعرفة', minPoints: 250, nextMinPoints: 450 },
   { level: 4, title: 'عبقري الابتدائي', minPoints: 450, nextMinPoints: 700 },
-  { level: 5, title: 'بطل منارة تونس', minPoints: 700, nextMinPoints: null },
+  { level: 5, title: 'بطل أكاديمية عزيز', minPoints: 700, nextMinPoints: null },
 ];
 
 export const BADGES: BadgeDefinition[] = [
@@ -177,8 +187,8 @@ export const BADGES: BadgeDefinition[] = [
   },
   {
     id: 'master-500',
-    title: 'وسام بطل منارة تونس',
-    description: 'إنجاز استثنائي! وصلت إلى 500 نقطة في المنصة.',
+    title: 'وسام بطل أكاديمية عزيز',
+    description: 'إنجاز استثنائي! وصلت إلى 500 نقطة في أكاديمية عزيز.',
     requirementText: 'اجمع 500 نقطة',
     bonusPoints: 100,
     icon: 'beacon',

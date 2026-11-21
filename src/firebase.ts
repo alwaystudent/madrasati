@@ -62,6 +62,9 @@ export function handleFirestoreError(
 }
 
 async function testConnection() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return;
+  }
   try {
     if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('fb_conn_checked') === '1') {
       return;

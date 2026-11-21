@@ -6,13 +6,16 @@ import { MainLandingPortal } from './components/MainLandingPortal';
 import { LearningPathwayHome } from './components/LearningPathwayHome';
 import { SubjectBrowser } from './components/SubjectBrowser';
 import { LessonWorkspace } from './components/LessonWorkspace';
+import { VisualMediaStudio } from './components/VisualMediaStudio';
 import { FrenchTrainingStudio } from './components/FrenchTrainingStudio';
 import { PracticeBankView } from './components/PracticeBankView';
 import { ExpressChallenge } from './components/ExpressChallenge';
 import { LeaderboardView } from './components/LeaderboardView';
 import { ProgressDashboard } from './components/ProgressDashboard';
 import { ProgressReportView } from './components/ProgressReportView';
+import { ParentFollowUpView } from './components/ParentFollowUpView';
 import { LegalPolicyView } from './components/LegalPolicyView';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { RewardToast } from './components/RewardToast';
 import { GRADES } from './data/tunisianCurriculum';
 import { useStudentProgress } from './hooks/useStudentProgress';
@@ -68,11 +71,15 @@ export default function App() {
     recordLessonResult,
     equipBadge,
     updateStudentProfile,
+    restoreFromBackup,
     resetProgress,
+    parentPrefs,
+    saveParentPrefs,
+    clearParentPrefs,
   } = useStudentProgress();
 
   const activeGradeMeta =
-    GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[2];
+    GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[3];
 
   const handleSelectLesson = (lesson: Lesson) => {
     setActiveLesson(lesson);
@@ -91,12 +98,14 @@ export default function App() {
   const viewTitleMap: Record<AppView, string> = {
     home: 'مسار التعلّم الشخصي',
     subjects: 'الدروس والمختبرات التفاعلية',
+    visual_studio: 'قسم المحتوى المرئي والرسوم المتحركة',
     french_studio: 'أكاديمية اللغة الفرنسية التفاعلية',
     practice: 'بنك التمارين والاختبارات 2026',
     express: 'تحدي 3 دقائق السريع',
     leaderboard: 'لوحة الصدارة وتحدّي الزملاء',
     progress: 'بطاقة التلميذ والأوسمة',
-    reports: 'حفظ بيانات التلاميذ وتقارير التقدّم',
+    reports: 'حفظ بيانات التلاميذ وتقارير التقدّم والشهادة',
+    parent_followup: 'بوابة متابعة ولي الأمر والإشعارات',
     legal: 'سياسة الخصوصية وشروط الاستخدام',
     lesson: activeLesson ? activeLesson.title : 'الدرس التفاعلي',
   };
@@ -148,7 +157,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex text-slate-900 bg-slate-50/70">
+    <div className="min-h-screen flex text-slate-800 bg-[#f4faff]/80">
       <SidebarNav
         activeView={activeView}
         onNavigate={handleNavigate}
@@ -167,18 +176,18 @@ export default function App() {
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Contextual Workspace Header */}
-        <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-xs border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-xs border-b-2 border-sky-100 px-4 sm:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="فتح القائمة الجانبية"
-              className="lg:hidden p-2 rounded-lg text-slate-700 hover:bg-slate-100 cursor-pointer"
+              className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-sky-50 cursor-pointer"
             >
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2 text-xs sm:text-sm min-w-0">
-              <span className="font-semibold text-sky-700 shrink-0">
+              <span className="font-bold text-sky-700 shrink-0">
                 {activeGradeMeta.shortLabel}
               </span>
               <span className="text-slate-300" aria-hidden="true">
@@ -193,12 +202,14 @@ export default function App() {
           <button
             type="button"
             onClick={() => handleNavigate('express')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-xl shadow-xs transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <Timer className="w-3.5 h-3.5" aria-hidden="true" />
+            <Timer className="w-4 h-4" aria-hidden="true" />
             ابدأ تحدي اليوم
           </button>
         </header>
+
+        <PWAInstallBanner />
 
         <main className="flex-1">
           <motion.div
@@ -231,7 +242,9 @@ export default function App() {
                 onOpenPractice={() => handleNavigate('practice')}
                 onOpenProgress={() => handleNavigate('progress')}
                 onOpenFrenchStudio={() => handleNavigate('french_studio')}
+                onOpenVisualStudio={() => handleNavigate('visual_studio')}
                 onOpenReports={() => handleNavigate('reports')}
+                onOpenParentFollowUp={() => handleNavigate('parent_followup')}
               />
             )}
 
@@ -243,10 +256,39 @@ export default function App() {
               />
             )}
 
+            {activeView === 'visual_studio' && (
+              <VisualMediaStudio
+                selectedGrade={progress.selectedGrade}
+                studentName={progress.studentName}
+                onRecordVisualStudy={(
+                  moduleId,
+                  title,
+                  grade,
+                  subjectId,
+                  score,
+                  total,
+                  points
+                ) =>
+                  recordLessonResult(
+                    moduleId,
+                    title,
+                    subjectId,
+                    grade,
+                    score,
+                    total,
+                    points,
+                    'lesson'
+                  )
+                }
+              />
+            )}
+
             {activeView === 'french_studio' && (
               <FrenchTrainingStudio
                 selectedGrade={progress.selectedGrade}
                 studentName={progress.studentName}
+                frenchLessons={studentLessons.filter((l) => l.subjectId === 'french')}
+                onSelectLesson={handleSelectLesson}
                 onRecordFrenchTraining={(title, score, total, points) =>
                   recordLessonResult(
                     `french-studio-g${progress.selectedGrade}`,
@@ -378,10 +420,12 @@ export default function App() {
                 savedStudents={savedStudents}
                 activeStudentId={activeStudentId}
                 savedReports={savedReports}
+                peerChallenges={peerChallenges}
                 cloudSyncStatus={cloudSyncStatus}
                 cloudError={cloudError}
                 hasPendingSync={hasPendingSync}
                 onFlushSyncNow={flushCloudSyncNow}
+                onRestoreBackup={restoreFromBackup}
                 onSignInWithGoogle={signInWithGoogle}
                 onSignOutCloud={signOutCloud}
                 onSelectSavedStudent={selectSavedStudent}
@@ -390,6 +434,28 @@ export default function App() {
                 onSaveProgressReport={saveProgressReportSnapshot}
                 onDeleteProgressReport={removeProgressReportSnapshot}
                 onSelectLesson={handleSelectLesson}
+                onOpenParentFollowUp={() => handleNavigate('parent_followup')}
+              />
+            )}
+
+            {activeView === 'parent_followup' && (
+              <ParentFollowUpView
+                progress={progress}
+                studentLessons={studentLessons}
+                savedStudents={savedStudents}
+                activeStudentId={activeStudentId}
+                authUser={authUser}
+                subjectStats={subjectStats}
+                overallMasteryPercent={overallMasteryPercent}
+                completedCount={completedCount}
+                totalLessons={totalLessons}
+                earnedBadgesCount={earnedBadges.length}
+                parentPrefs={parentPrefs}
+                onSaveParentPrefs={saveParentPrefs}
+                onClearParentPrefs={clearParentPrefs}
+                onSelectSavedStudent={selectSavedStudent}
+                onSelectLesson={handleSelectLesson}
+                onOpenReports={() => handleNavigate('reports')}
               />
             )}
 
@@ -405,7 +471,7 @@ export default function App() {
         <footer className="mt-10 border-t border-slate-200 bg-white">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
             <div>
-              منارة التعلّم — منصة تفاعلية وفق برنامج التعليم الابتدائي بالجمهورية التونسية 2026 ({activeGradeMeta.label})
+              أكاديمية عزيز — منصة تفاعلية وفق برنامج التعليم الابتدائي بالجمهورية التونسية 2026 ({activeGradeMeta.label})
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <button
@@ -428,6 +494,13 @@ export default function App() {
                 className="hover:text-slate-900 cursor-pointer"
               >
                 تقارير التقدّم
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigate('parent_followup')}
+                className="hover:text-slate-900 cursor-pointer"
+              >
+                متابعة ولي الأمر
               </button>
               <button
                 type="button"

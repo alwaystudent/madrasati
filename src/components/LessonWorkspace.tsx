@@ -16,6 +16,7 @@ import { ExerciseEngine } from './ExerciseEngine';
 import { LessonTutorChat } from './LessonTutorChat';
 import { FrenchSpeakableText } from './FrenchSpeakableText';
 import { SpeechSpeed } from '../utils/frenchSpeech';
+import { speakArabicText } from '../utils/arabicSpeech';
 
 interface LessonWorkspaceProps {
   lesson: Lesson;
@@ -86,7 +87,7 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums">{lesson.durationMinutes} دقائق</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 text-balance">
+          <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900 text-balance">
             {lesson.title}
           </h1>
         </div>
@@ -130,6 +131,13 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
           </button>
         </div>
       </div>
+
+      {lesson.supportTip && (
+        <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-sm text-emerald-950 leading-relaxed">
+          <strong className="font-bold text-emerald-900">سرّ الفهم السريع لهذا الدرس: </strong>
+          {lesson.supportTip}
+        </div>
+      )}
 
       {activeTab === 'lab' && (
         <div className="space-y-6">
@@ -258,8 +266,20 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
               </div>
 
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="text-xs font-semibold text-sky-700">
-                  المهمة {activeStepIdx + 1}: جرّب بنفسك في المختبر
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-semibold text-sky-700">
+                    المهمة {activeStepIdx + 1}: جرّب بنفسك في المختبر
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      speakArabicText(`${currentStep.instruction}. ${currentStep.takeaway}`)
+                    }
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-sky-800 bg-white hover:bg-sky-50 border border-slate-200 rounded-md cursor-pointer"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    استمع
+                  </button>
                 </div>
                 <p className="text-sm text-slate-800 leading-relaxed">{currentStep.instruction}</p>
                 <div className="pt-3 border-t border-slate-200 space-y-1">
@@ -310,6 +330,7 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
             onComplete={onLessonComplete}
             onBackToSim={() => setActiveTab('lab')}
             modeLabel={`تمارين: ${lesson.title}`}
+            supportTip={lesson.supportTip}
           />
         </div>
       )}

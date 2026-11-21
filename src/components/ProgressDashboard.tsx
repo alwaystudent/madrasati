@@ -76,7 +76,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
   const [chestPreviewBadge, setChestPreviewBadge] = useState<BadgeDefinition | null>(null);
 
   const activeGradeMeta =
-    GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[2];
+    GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[3];
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,14 +105,14 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Student Profile Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-xs">
+      <div className="bg-gradient-to-l from-white via-white to-sky-50/50 border-2 border-sky-100 rounded-3xl p-6 space-y-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-start gap-4">
             {equippedBadge ? (
               <BadgeMedallion badge={equippedBadge} unlocked size="lg" />
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                <Award className="w-8 h-8 text-slate-400" aria-hidden="true" />
+              <div className="w-16 h-16 rounded-2xl bg-sky-50 border-2 border-sky-200 flex items-center justify-center shrink-0">
+                <Award className="w-8 h-8 text-sky-500" aria-hidden="true" />
               </div>
             )}
 
@@ -124,7 +124,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
               {!editingProfile ? (
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+                    <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
                       {progress.studentName.trim() || 'عزيز'}
                     </h1>
                     <button
@@ -284,21 +284,21 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
       {/* Subject Mastery strictly for the student's grade */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
+          <h2 className="text-lg sm:text-xl font-display font-bold text-slate-900">
             تقدّم {progress.studentName || 'عزيز'} في مواد {activeGradeMeta.label}
           </h2>
           <span className="text-xs font-mono font-bold text-sky-700 tabular-nums">
             إتقان القسم: {overallMasteryPercent}%
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {(['math', 'science', 'arabic', 'french'] as SubjectId[]).map((sid) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {(['math', 'science', 'arabic', 'french', 'social'] as SubjectId[]).map((sid) => {
             const meta = SUBJECTS[sid];
             const stats = subjectStats(sid);
             return (
               <div
                 key={sid}
-                className="card-interactive bg-white border border-slate-200 rounded-2xl p-5 space-y-4"
+                className="card-interactive bg-white border-2 border-slate-200/90 hover:border-sky-300 rounded-3xl p-5 space-y-4"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -314,7 +314,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                   </span>
                 </div>
 
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full ${meta.barColor} transition-all duration-300`}
                     style={{ width: `${stats.completionPercent}%` }}
@@ -337,7 +337,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
+            <h2 className="text-lg sm:text-xl font-display font-bold text-slate-900">
               خزانة الأوسمة الافتراضية ({earnedBadges.length} من {BADGES.length})
             </h2>
             <p className="text-sm text-slate-600 leading-relaxed mt-1">

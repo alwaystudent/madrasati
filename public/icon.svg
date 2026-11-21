@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde68a" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <path
+    d="M96 420V288C96 199.6 167.6 128 256 128C344.4 128 416 199.6 416 288V420H96Z"
+    fill="#ffffff"
+    fill-opacity="0.16"
+  />
+  <path
+    d="M152 388V280C152 222.6 198.6 176 256 176C313.4 176 360 222.6 360 280V388"
+    stroke="#ffffff"
+    stroke-width="22"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <path
+    d="M168 358C196 342 228 342 256 360C284 342 316 342 344 358V284C316 268 284 268 256 286C228 268 196 268 168 284V358Z"
+    fill="#ffffff"
+  />
+  <line x1="256" y1="286" x2="256" y2="360" stroke="#0284c7" stroke-width="14" stroke-linecap="round" />
+  <path
+    d="M256 72L273 111L314 115L283 142L292 183L256 161L220 183L229 142L198 115L239 111L256 72Z"
+    fill="url(#gold)"
+  />
+</svg>

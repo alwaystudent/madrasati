@@ -18,6 +18,8 @@ import {
   GradeLevel,
   LeaderboardEntry,
   LessonCompletion,
+  ParentFollowUpPreferences,
+  ParentNotificationCadence,
   PeerChallengeRecord,
   SavedProgressReport,
   SavedStudentRecord,
@@ -78,14 +80,14 @@ const safeDate = (val: string | undefined): string => {
 
 const safeGrade = (g: number): GradeLevel => {
   if (g === 3 || g === 4 || g === 5 || g === 6) return g;
-  return 5;
+  return 6;
 };
 
 function sanitizeLessonsMap(
   raw: Record<string, LessonCompletion>
 ): Record<string, LessonCompletion> {
   const result: Record<string, LessonCompletion> = {};
-  const entries = Object.entries(raw || {}).slice(0, 300);
+  const entries = Object.entries(raw || {}).slice(0, 500);
   for (const [k, v] of entries) {
     if (!k || k.length > 80 || !v) continue;
     const total = clampInt(v.totalQuestions, 1, 500);
@@ -102,7 +104,7 @@ function sanitizeLessonsMap(
 
 function sanitizeStepsMap(raw: Record<string, number[]>): Record<string, number[]> {
   const result: Record<string, number[]> = {};
-  const entries = Object.entries(raw || {}).slice(0, 300);
+  const entries = Object.entries(raw || {}).slice(0, 500);
   for (const [k, v] of entries) {
     if (!k || k.length > 80 || !Array.isArray(v)) continue;
     result[k] = v.slice(0, 20).map((idx) => clampInt(idx, 0, 50));
@@ -397,6 +399,7 @@ export interface CreateProgressReportInput {
   scienceMastery: number;
   arabicMastery: number;
   frenchMastery: number;
+  socialMastery?: number;
   strengthsSummary: string;
   recommendationsSummary: string;
 }
@@ -427,6 +430,7 @@ export async function saveProgressReportToCloud(
       scienceMastery: clampInt(input.scienceMastery, 0, 100),
       arabicMastery: clampInt(input.arabicMastery, 0, 100),
       frenchMastery: clampInt(input.frenchMastery, 0, 100),
+      socialMastery: clampInt(input.socialMastery ?? 0, 0, 100),
       strengthsSummary: safeString(input.strengthsSummary, 400, 'مواظبة طيبة وتقدّم متوازن.'),
       recommendationsSummary: safeString(
         input.recommendationsSummary,
@@ -458,6 +462,7 @@ export async function saveProgressReportToCloud(
       scienceMastery: cleanPayload.scienceMastery,
       arabicMastery: cleanPayload.arabicMastery,
       frenchMastery: cleanPayload.frenchMastery,
+      socialMastery: cleanPayload.socialMastery,
       strengthsSummary: cleanPayload.strengthsSummary,
       recommendationsSummary: cleanPayload.recommendationsSummary,
       createdAtIso: new Date().toISOString(),
@@ -519,6 +524,7 @@ export async function fetchProgressReportsOnce(
         scienceMastery: clampInt(Number(data.scienceMastery), 0, 100),
         arabicMastery: clampInt(Number(data.arabicMastery), 0, 100),
         frenchMastery: clampInt(Number(data.frenchMastery), 0, 100),
+        socialMastery: clampInt(Number(data.socialMastery ?? 0), 0, 100),
         strengthsSummary: String(data.strengthsSummary ?? ''),
         recommendationsSummary: String(data.recommendationsSummary ?? ''),
         createdAtIso: timestampToIso(data.createdAt),
@@ -753,3 +759,85 @@ export async function fetchPeerChallengesOnce(
     handleFirestoreError(error, OperationType.LIST, path);
   }
 }
+
+const PARENT_PREF_DOC_ID = 'default';
+
+const safeCadence = (val: unknown): ParentNotificationCadence => {
+  if (val === 'weekly' || val === 'biweekly' || val === 'monthly' || val === 'disabled') {
+    return val;
+  }
+  return 'weekly';
+};
+
+export async function fetchParentPreferencesOnce(
+  uid: string
+): Promise<ParentFollowUpPreferences | null> {
+  const path = `users/${uid}/parentPreferences/${PARENT_PREF_DOC_ID}`;
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'parentPreferences', PARENT_PREF_DOC_ID));
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    return {
+      parentEmail: safeString(typeof data.parentEmail === 'string' ? data.parentEmail : '', 120),
+      cadence: safeCadence(data.cadence),
+      notifyOnBadge: Boolean(data.notifyOnBadge),
+      notifyOnInactivity: Boolean(data.notifyOnInactivity),
+      includeSubjectDetails: Boolean(data.includeSubjectDetails),
+      consentAccepted: Boolean(data.consentAccepted),
+      consentUpdatedAtIso: safeString(
+        typeof data.consentUpdatedAtIso === 'string' ? data.consentUpdatedAtIso : '',
+        40
+      ),
+      lastDigestGeneratedIso: safeString(
+        typeof data.lastDigestGeneratedIso === 'string' ? data.lastDigestGeneratedIso : '',
+        40
+      ),
+    };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+  }
+}
+
+export async function saveParentPreferencesToCloud(
+  uid: string,
+  prefs: ParentFollowUpPreferences
+): Promise<void> {
+  const path = `users/${uid}/parentPreferences/${PARENT_PREF_DOC_ID}`;
+  const ref = doc(db, 'users', uid, 'parentPreferences', PARENT_PREF_DOC_ID);
+  const mutableFields = {
+    parentEmail: safeString(prefs.parentEmail, 120),
+    cadence: safeCadence(prefs.cadence),
+    notifyOnBadge: Boolean(prefs.notifyOnBadge),
+    notifyOnInactivity: Boolean(prefs.notifyOnInactivity),
+    includeSubjectDetails: Boolean(prefs.includeSubjectDetails),
+    consentAccepted: Boolean(prefs.consentAccepted),
+    consentUpdatedAtIso: safeString(prefs.consentUpdatedAtIso, 40),
+    lastDigestGeneratedIso: safeString(prefs.lastDigestGeneratedIso, 40),
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        ownerId: uid,
+        ...mutableFields,
+        createdAt: serverTimestamp(),
+      });
+    } else {
+      await updateDoc(ref, mutableFields);
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteParentPreferencesInCloud(uid: string): Promise<void> {
+  const path = `users/${uid}/parentPreferences/${PARENT_PREF_DOC_ID}`;
+  try {
+    await deleteDoc(doc(db, 'users', uid, 'parentPreferences', PARENT_PREF_DOC_ID));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+

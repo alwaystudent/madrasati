@@ -13,6 +13,7 @@ import { MatterLab } from './MatterLab';
 import { WordTypesLab } from './WordTypesLab';
 import { FrenchArticlesLab } from './FrenchArticlesLab';
 import { PercentRatioLab } from './PercentRatioLab';
+import { SocialHeritageLab } from './SocialHeritageLab';
 
 interface SimulationStageProps {
   simType: SimulationType;
@@ -46,5 +47,7 @@ export const SimulationStage: React.FC<SimulationStageProps> = ({ simType }) => 
       return <FrenchArticlesLab />;
     case 'percent_ratio':
       return <PercentRatioLab />;
+    case 'social_heritage':
+      return <SocialHeritageLab />;
   }
 };

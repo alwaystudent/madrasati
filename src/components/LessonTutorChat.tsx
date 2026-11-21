@@ -44,7 +44,7 @@ export const LessonTutorChat: React.FC<LessonTutorChatProps> = ({
   onConsumePrefill,
 }) => {
   const subject = SUBJECTS[lesson.subjectId];
-  const gradeMeta = GRADES.find((g) => g.grade === lesson.grade) ?? GRADES[2];
+  const gradeMeta = GRADES.find((g) => g.grade === lesson.grade) ?? GRADES[3];
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');

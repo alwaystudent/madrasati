@@ -24,10 +24,10 @@ export const ExpressChallenge: React.FC<ExpressChallengeProps> = ({
   const [sessionKey, setSessionKey] = useState(0);
   const [mascotFailed, setMascotFailed] = useState(false);
 
-  const activeGradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[2];
+  const activeGradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[3];
 
   const challengeExercises: Exercise[] = useMemo(() => {
-    const subjects: SubjectId[] = ['math', 'science', 'arabic', 'french'];
+    const subjects: SubjectId[] = ['math', 'science', 'arabic', 'french', 'social'];
     const picked: Exercise[] = [];
 
     for (const sid of subjects) {
@@ -66,25 +66,25 @@ export const ExpressChallenge: React.FC<ExpressChallengeProps> = ({
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
             العودة إلى مسار التعلّم
           </button>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
             تحدي 3 دقائق السريع ({activeGradeMeta.label})
           </h1>
           <p className="text-sm text-slate-600 leading-relaxed">
-            4 أسئلة من برنامج {activeGradeMeta.shortLabel} (الرياضيات، الإيقاظ العلمي، العربية، الفرنسية) تمنحك نقاطاً ووسام قاهر الكسل!
+            5 أسئلة من برنامج {activeGradeMeta.shortLabel} (الرياضيات، الإيقاظ العلمي، العربية، الفرنسية، المواد الاجتماعية) تمنحك نقاطاً ووسام قاهر الكسل!
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {!relaxedMode && (
-            <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-900 text-white font-mono text-sm font-bold tabular-nums">
-              <Timer className="w-4 h-4 text-amber-400" aria-hidden="true" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-sky-600 text-white font-mono text-sm font-bold tabular-nums">
+              <Timer className="w-4 h-4 text-amber-300" aria-hidden="true" />
               {formattedTime}
             </div>
           )}
           <button
             type="button"
             onClick={() => setRelaxedMode((r) => !r)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-600" aria-hidden="true" />
             {relaxedMode ? 'تفعيل المؤقت' : 'وضع مريح بدون مؤقت'}
@@ -92,7 +92,7 @@ export const ExpressChallenge: React.FC<ExpressChallengeProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 p-4 rounded-2xl bg-sky-50 border border-sky-200">
+      <div className="flex items-center gap-4 p-4 rounded-3xl bg-gradient-to-l from-sky-50 via-white to-amber-50/70 border-2 border-sky-200">
         <div className="w-14 h-14 rounded-xl bg-white border border-sky-200 overflow-hidden shrink-0 flex items-center justify-center">
           {!mascotFailed ? (
             <img

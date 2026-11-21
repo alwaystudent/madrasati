@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
+  Calendar,
   CheckCircle2,
   Ear,
   FileText,
   GraduationCap,
   Languages,
+  Play,
   RotateCcw,
   Sparkles,
   Volume2,
   XCircle,
 } from 'lucide-react';
-import { GRADES } from '../data/tunisianCurriculum';
+import { GRADES, TRIMESTERS } from '../data/tunisianCurriculum';
 import { FRENCH_TRAINING_PROGRAMS } from '../data/frenchTrainingData';
-import { GradeLevel } from '../types/curriculum';
+import { GradeLevel, Lesson, TrimesterType } from '../types/curriculum';
 import { speakFrenchText, SpeechSpeed } from '../utils/frenchSpeech';
 import { FrenchSpeakableText } from './FrenchSpeakableText';
 import { ExerciseEngine } from './ExerciseEngine';
@@ -21,6 +23,8 @@ import { ExerciseEngine } from './ExerciseEngine';
 interface FrenchTrainingStudioProps {
   selectedGrade: GradeLevel;
   studentName: string;
+  frenchLessons?: Lesson[];
+  onSelectLesson?: (lesson: Lesson) => void;
   onRecordFrenchTraining: (
     title: string,
     score: number,
@@ -29,15 +33,18 @@ interface FrenchTrainingStudioProps {
   ) => void;
 }
 
-type StudioTab = 'vocab' | 'listening' | 'grammar' | 'reading';
+type StudioTab = 'vocab' | 'listening' | 'grammar' | 'reading' | 'lessons';
 
 export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   selectedGrade,
   studentName,
+  frenchLessons = [],
+  onSelectLesson,
   onRecordFrenchTraining,
 }) => {
   const [activeTab, setActiveTab] = useState<StudioTab>('vocab');
   const [speed, setSpeed] = useState<SpeechSpeed>('normal');
+  const [selectedTrimester, setSelectedTrimester] = useState<'all' | TrimesterType>('all');
   const [selectedTheme, setSelectedTheme] = useState<string>('all');
 
   // Listening exercise state
@@ -49,20 +56,61 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
   // Reading comprehension state
+  const [selectedPassageId, setSelectedPassageId] = useState<string>('');
   const [showArabicTranslation, setShowArabicTranslation] = useState(false);
   const [readingAnswers, setReadingAnswers] = useState<Record<string, number>>({});
   const [readingSubmitted, setReadingSubmitted] = useState(false);
 
   const program = FRENCH_TRAINING_PROGRAMS[selectedGrade];
-  const gradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[2];
-  const themes = Array.from(new Set(program.vocabCards.map((c) => c.theme)));
+  const gradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[3];
 
+  const trimesterVocab = program.vocabCards.filter(
+    (c) => selectedTrimester === 'all' || !c.trimester || c.trimester === selectedTrimester
+  );
+  const themes = Array.from(new Set(trimesterVocab.map((c) => c.theme)));
   const visibleVocab =
     selectedTheme === 'all'
-      ? program.vocabCards
-      : program.vocabCards.filter((c) => c.theme === selectedTheme);
+      ? trimesterVocab
+      : trimesterVocab.filter((c) => c.theme === selectedTheme);
 
-  const currentListen = program.listeningItems[listenIdx];
+  const visibleListening = program.listeningItems.filter(
+    (item) =>
+      selectedTrimester === 'all' || !item.trimester || item.trimester === selectedTrimester
+  );
+  const visibleGrammar = program.grammarExercises.filter(
+    (ex) => selectedTrimester === 'all' || !ex.trimester || ex.trimester === selectedTrimester
+  );
+  const visiblePassages = program.readingPassages.filter(
+    (p) => selectedTrimester === 'all' || p.trimester === selectedTrimester
+  );
+
+  const visibleFrenchLessons = frenchLessons.filter(
+    (l) => selectedTrimester === 'all' || l.trimester === selectedTrimester
+  );
+
+  const activePassage =
+    visiblePassages.find((p) => p.id === selectedPassageId) ??
+    visiblePassages[0] ??
+    program.readingPassages[0];
+
+  const currentListen = visibleListening[listenIdx];
+
+  useEffect(() => {
+    setSelectedTheme('all');
+    setListenIdx(0);
+    setListenSelected(null);
+    setListenSubmitted(false);
+    setListenScore(0);
+    setListenFinished(false);
+    setReadingAnswers({});
+    setReadingSubmitted(false);
+    const firstPass = program.readingPassages.find(
+      (p) => selectedTrimester === 'all' || p.trimester === selectedTrimester
+    );
+    if (firstPass) {
+      setSelectedPassageId(firstPass.id);
+    }
+  }, [selectedGrade, selectedTrimester, program.readingPassages]);
 
   const handlePlayListeningAudio = (id: string, text: string) => {
     speakFrenchText(text, {
@@ -81,12 +129,12 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   };
 
   const handleNextListen = () => {
-    if (listenIdx + 1 < program.listeningItems.length) {
+    if (listenIdx + 1 < visibleListening.length) {
       setListenIdx((i) => i + 1);
       setListenSelected(null);
       setListenSubmitted(false);
     } else {
-      const total = program.listeningItems.length;
+      const total = visibleListening.length;
       const earned = listenScore * 20 + (listenScore === total ? 40 : 15);
       setListenFinished(true);
       onRecordFrenchTraining(
@@ -105,8 +153,6 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
     setListenScore(0);
     setListenFinished(false);
   };
-
-  const activePassage = program.readingPassages[0];
 
   const handleCheckReading = () => {
     if (!activePassage || readingSubmitted) return;
@@ -128,17 +174,17 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Header Banner */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="bg-gradient-to-l from-white via-white to-indigo-50/50 border-2 border-indigo-100 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-indigo-100">
           <div className="space-y-1.5">
             <div className="text-xs font-semibold text-indigo-700">
               {program.levelBadge} · المنهاج الرسمي للجمهورية التونسية 2026
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900">
-              أكاديمية اللغة الفرنسية التفاعلية
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
+              أكاديمية اللغة الفرنسية الشاملة للعام الدراسي
             </h1>
             <p className="text-sm text-slate-600 leading-relaxed max-w-3xl">
-              {program.focusSummary} اضغط على أي كلمة أو جملة فرنسية لسماع نطقها الصحيح، وتدرّب على الاستماع والقراءة والقواعد.
+              {program.focusSummary} مرتبة حسب الثلاثيات بين المفردات والنصوص المسموعة والقواعد والتطبيقات التفاعلية.
             </p>
           </div>
 
@@ -170,7 +216,42 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
           </div>
         </div>
 
-        {/* 4 Skill Module Tabs */}
+        {/* Trimester Switcher Row */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-indigo-50/70 border border-indigo-100 rounded-xl">
+            <span className="inline-flex items-center gap-1 px-2 text-xs font-bold text-indigo-800">
+              <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
+              الترتيب حسب الثلاثي:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedTrimester('all')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg cursor-pointer transition-colors whitespace-nowrap ${
+                selectedTrimester === 'all'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-slate-700 hover:bg-white'
+              }`}
+            >
+              كامل العام الدراسي
+            </button>
+            {TRIMESTERS.map((tri) => (
+              <button
+                key={tri}
+                type="button"
+                onClick={() => setSelectedTrimester(tri)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg cursor-pointer transition-colors whitespace-nowrap ${
+                  selectedTrimester === tri
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-700 hover:bg-white'
+                }`}
+              >
+                {tri}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 5 Skill Module Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 w-fit">
           <button
             type="button"
@@ -182,7 +263,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
             }`}
           >
             <BookOpen className="w-4 h-4 text-indigo-600" aria-hidden="true" />
-            المعجم والنطق ({program.vocabCards.length})
+            المعجم والنطق ({trimesterVocab.length})
           </button>
           <button
             type="button"
@@ -194,7 +275,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
             }`}
           >
             <Ear className="w-4 h-4 text-sky-600" aria-hidden="true" />
-            الاستماع والفهم ({program.listeningItems.length})
+            الاستماع والفهم ({visibleListening.length})
           </button>
           <button
             type="button"
@@ -206,7 +287,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
             }`}
           >
             <GraduationCap className="w-4 h-4 text-amber-600" aria-hidden="true" />
-            القواعد والجمل ({program.grammarExercises.length})
+            القواعد والتطبيقات ({visibleGrammar.length})
           </button>
           <button
             type="button"
@@ -218,7 +299,19 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
             }`}
           >
             <FileText className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-            القراءة الجهرية الموجهة
+            نصوص القراءة والفهم ({visiblePassages.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('lessons')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'lessons'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Languages className="w-4 h-4 text-teal-600" aria-hidden="true" />
+            دروس المنهج المدمجة ({visibleFrenchLessons.length})
           </button>
         </div>
       </div>
@@ -237,7 +330,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                جميع المحاور ({program.vocabCards.length})
+                جميع المحاور ({trimesterVocab.length})
               </button>
               {themes.map((theme) => (
                 <button
@@ -268,7 +361,10 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-                    <span className="font-semibold text-indigo-700">{card.theme}</span>
+                    <span className="font-semibold text-indigo-700">
+                      {card.trimester ? `${card.trimester} · ` : ''}
+                      {card.theme}
+                    </span>
                     <span>{card.phonetic}</span>
                   </div>
 
@@ -340,7 +436,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                 <p className="text-sm text-slate-600">
                   حقّقت{' '}
                   <strong className="font-mono text-slate-900 tabular-nums">
-                    {listenScore} / {program.listeningItems.length}
+                    {listenScore} / {visibleListening.length}
                   </strong>{' '}
                   في الفهم السماعي للغة الفرنسية.
                 </p>
@@ -359,9 +455,10 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               <div className="flex items-center justify-between text-xs text-slate-500 pb-3 border-b border-slate-100">
                 <span className="font-semibold text-indigo-700">
                   تدريب الفهم السماعي · {gradeMeta.shortLabel}
+                  {currentListen.trimester ? ` · ${currentListen.trimester}` : ''}
                 </span>
                 <span className="font-mono tabular-nums">
-                  التسجيل {listenIdx + 1} من {program.listeningItems.length}
+                  التسجيل {listenIdx + 1} من {visibleListening.length}
                 </span>
               </div>
 
@@ -446,7 +543,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
 
               <div className="flex items-center justify-between pt-2">
                 <span className="text-xs font-mono text-slate-500 tabular-nums">
-                  النتيجة: {listenScore} / {program.listeningItems.length}
+                  النتيجة: {listenScore} / {visibleListening.length}
                 </span>
 
                 {!listenSubmitted ? (
@@ -464,7 +561,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     onClick={handleNextListen}
                     className="px-6 py-2.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl cursor-pointer"
                   >
-                    {listenIdx + 1 < program.listeningItems.length
+                    {listenIdx + 1 < visibleListening.length
                       ? 'التسجيل التالي'
                       : 'إنهاء وجمع النقاط'}
                   </button>
@@ -475,16 +572,16 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
         </div>
       )}
 
-      {/* TAB 3: Grammar & Sentence Building Drills */}
+      {/* TAB 3: Grammar & Applications Drills */}
       {activeTab === 'grammar' && (
         <div className="max-w-3xl mx-auto">
           <ExerciseEngine
-            key={`french-grammar-${selectedGrade}`}
-            exercises={program.grammarExercises}
-            modeLabel={`قواعد الفرنسية وتراكيبها · ${gradeMeta.shortLabel}`}
+            key={`french-grammar-${selectedGrade}-${selectedTrimester}`}
+            exercises={visibleGrammar}
+            modeLabel={`قواعد الفرنسية وتطبيقاتها · ${gradeMeta.shortLabel}`}
             onComplete={(score, total, points) =>
               onRecordFrenchTraining(
-                `ورشة القواعد الفرنسية (${gradeMeta.shortLabel})`,
+                `ورشة القواعد والتطبيقات الفرنسية (${gradeMeta.shortLabel})`,
                 score,
                 total,
                 points
@@ -494,154 +591,237 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
         </div>
       )}
 
-      {/* TAB 4: Expressive Guided Reading */}
+      {/* TAB 4: Expressive Guided Reading (All 3 Trimesters Selectable) */}
       {activeTab === 'reading' && activePassage && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
-              <div>
-                <div className="text-xs font-semibold text-indigo-700">
-                  {activePassage.trimester} · {activePassage.titleAr}
-                </div>
-                <h2 dir="ltr" className="text-xl font-bold text-slate-900 mt-0.5">
-                  {activePassage.titleFr}
-                </h2>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    speakFrenchText(activePassage.paragraphsFr.join(' '), { speed })
-                  }
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer whitespace-nowrap"
-                >
-                  <Volume2 className="w-4 h-4" aria-hidden="true" />
-                  اقرأ النص كاملاً
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowArabicTranslation((v) => !v)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer whitespace-nowrap"
-                >
-                  <Languages className="w-4 h-4" aria-hidden="true" />
-                  {showArabicTranslation ? 'إخفاء الترجمة' : 'ترجمة عربية مساعدة'}
-                </button>
-              </div>
-            </div>
-
-            <div className="text-xs text-indigo-700 font-medium">
-              اضغط على أي كلمة داخل الفقرة للاستماع إلى نطقها منفردة:
-            </div>
-
-            <div className="space-y-4 p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200">
-              {activePassage.paragraphsFr.map((para, idx) => (
-                <FrenchSpeakableText
-                  key={idx}
-                  text={para}
-                  speed={speed}
-                  size="lg"
-                  sentenceButtonLabel={`فقرة ${idx + 1}`}
-                />
-              ))}
-            </div>
-
-            {showArabicTranslation && (
-              <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1">
-                <div className="text-xs font-bold text-amber-900">المعنى العام بالعربية:</div>
-                <p className="text-sm text-slate-800 leading-relaxed">
-                  {activePassage.translationAr}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <aside className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
-            <div className="pb-3 border-b border-slate-100">
-              <h3 className="text-lg font-display font-bold text-slate-900">
-                أسئلة فهم المقروء
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                أجب عن أسئلة النص لتثبيت الفهم وجمع نقاط التميّز في الفرنسية.
-              </p>
-            </div>
-
-            <div className="space-y-5">
-              {activePassage.questions.map((q, qIdx) => {
-                const chosen = readingAnswers[q.id];
+        <div className="space-y-4">
+          {visiblePassages.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2 p-2 bg-white border border-slate-200 rounded-2xl">
+              {visiblePassages.map((pass) => {
+                const isSelected = pass.id === activePassage.id;
                 return (
-                  <div key={q.id} className="space-y-2.5">
-                    <div className="text-sm font-bold text-slate-900">
-                      {qIdx + 1}. {q.prompt}
-                    </div>
-                    <div className="space-y-2">
-                      {q.options.map((opt, optIdx) => {
-                        const isSelected = chosen === optIdx;
-                        const isRight = readingSubmitted && optIdx === q.correctIndex;
-                        const isWrong = readingSubmitted && isSelected && !isRight;
-                        return (
-                          <button
-                            key={optIdx}
-                            type="button"
-                            disabled={readingSubmitted}
-                            onClick={() =>
-                              setReadingAnswers((prev) => ({ ...prev, [q.id]: optIdx }))
-                            }
-                            className={`w-full p-3 rounded-xl border text-right text-xs sm:text-sm font-medium transition-colors cursor-pointer flex items-center justify-between gap-2 ${
-                              isRight
-                                ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-semibold'
-                                : isWrong
-                                ? 'bg-rose-50 border-rose-400 text-rose-950'
-                                : isSelected
-                                ? 'bg-indigo-50 border-indigo-500 text-indigo-950 font-semibold'
-                                : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'
-                            }`}
-                          >
-                            <span>{opt}</span>
-                            {isRight && (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
-                            )}
-                            {isWrong && (
-                              <XCircle className="w-4 h-4 text-rose-700 shrink-0" aria-hidden="true" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {readingSubmitted && (
-                      <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg">
-                        {q.explanation}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    key={pass.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPassageId(pass.id);
+                      setReadingAnswers({});
+                      setReadingSubmitted(false);
+                      setShowArabicTranslation(false);
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-50 text-slate-700 hover:bg-indigo-50'
+                    }`}
+                  >
+                    {pass.trimester} · {pass.titleAr}
+                  </button>
                 );
               })}
             </div>
+          )}
 
-            {!readingSubmitted ? (
-              <button
-                type="button"
-                disabled={
-                  Object.keys(readingAnswers).length < activePassage.questions.length
-                }
-                onClick={handleCheckReading}
-                className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 rounded-xl cursor-pointer"
-              >
-                تحقّق واجمع النقاط
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setReadingAnswers({});
-                  setReadingSubmitted(false);
-                }}
-                className="w-full py-2.5 px-4 text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
-              >
-                إعادة المحاولة
-              </button>
-            )}
-          </aside>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div>
+                  <div className="text-xs font-semibold text-indigo-700">
+                    {activePassage.trimester} · {activePassage.titleAr}
+                  </div>
+                  <h2 dir="ltr" className="text-xl font-bold text-slate-900 mt-0.5">
+                    {activePassage.titleFr}
+                  </h2>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      speakFrenchText(activePassage.paragraphsFr.join(' '), { speed })
+                    }
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer whitespace-nowrap"
+                  >
+                    <Volume2 className="w-4 h-4" aria-hidden="true" />
+                    اقرأ النص كاملاً
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowArabicTranslation((v) => !v)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer whitespace-nowrap"
+                  >
+                    <Languages className="w-4 h-4" aria-hidden="true" />
+                    {showArabicTranslation ? 'إخفاء الترجمة' : 'ترجمة عربية مساعدة'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-xs text-indigo-700 font-medium">
+                اضغط على أي كلمة داخل الفقرة للاستماع إلى نطقها منفردة:
+              </div>
+
+              <div className="space-y-4 p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200">
+                {activePassage.paragraphsFr.map((para, idx) => (
+                  <FrenchSpeakableText
+                    key={idx}
+                    text={para}
+                    speed={speed}
+                    size="lg"
+                    sentenceButtonLabel={`فقرة ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+              {showArabicTranslation && (
+                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1">
+                  <div className="text-xs font-bold text-amber-900">المعنى العام بالعربية:</div>
+                  <p className="text-sm text-slate-800 leading-relaxed">
+                    {activePassage.translationAr}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <aside className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
+              <div className="pb-3 border-b border-slate-100">
+                <h3 className="text-lg font-display font-bold text-slate-900">
+                  أسئلة فهم المقروء
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  أجب عن أسئلة النص لتثبيت الفهم وجمع نقاط التميّز في الفرنسية.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                {activePassage.questions.map((q, qIdx) => {
+                  const chosen = readingAnswers[q.id];
+                  return (
+                    <div key={q.id} className="space-y-2.5">
+                      <div className="text-sm font-bold text-slate-900">
+                        {qIdx + 1}. {q.prompt}
+                      </div>
+                      <div className="space-y-2">
+                        {q.options.map((opt, optIdx) => {
+                          const isSelected = chosen === optIdx;
+                          const isRight = readingSubmitted && optIdx === q.correctIndex;
+                          const isWrong = readingSubmitted && isSelected && !isRight;
+                          return (
+                            <button
+                              key={optIdx}
+                              type="button"
+                              disabled={readingSubmitted}
+                              onClick={() =>
+                                setReadingAnswers((prev) => ({ ...prev, [q.id]: optIdx }))
+                              }
+                              className={`w-full p-3 rounded-xl border text-right text-xs sm:text-sm font-medium transition-colors cursor-pointer flex items-center justify-between gap-2 ${
+                                isRight
+                                  ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-semibold'
+                                  : isWrong
+                                  ? 'bg-rose-50 border-rose-400 text-rose-950'
+                                  : isSelected
+                                  ? 'bg-indigo-50 border-indigo-500 text-indigo-950 font-semibold'
+                                  : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'
+                              }`}
+                            >
+                              <span>{opt}</span>
+                              {isRight && (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
+                              )}
+                              {isWrong && (
+                                <XCircle className="w-4 h-4 text-rose-700 shrink-0" aria-hidden="true" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {readingSubmitted && (
+                        <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg">
+                          {q.explanation}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!readingSubmitted ? (
+                <button
+                  type="button"
+                  disabled={
+                    Object.keys(readingAnswers).length < activePassage.questions.length
+                  }
+                  onClick={handleCheckReading}
+                  className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 rounded-xl cursor-pointer"
+                >
+                  تحقّق واجمع النقاط
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReadingAnswers({});
+                    setReadingSubmitted(false);
+                  }}
+                  className="w-full py-2.5 px-4 text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+                >
+                  إعادة المحاولة
+                </button>
+              )}
+            </aside>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: Integrated Curriculum French Lessons Grouped by Trimester */}
+      {activeTab === 'lessons' && (
+        <div className="space-y-6">
+          {TRIMESTERS.map((tri) => {
+            const list = visibleFrenchLessons.filter((l) => l.trimester === tri);
+            if (list.length === 0) return null;
+            return (
+              <div key={tri} className="space-y-3">
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-indigo-100">
+                  <h2 className="text-base sm:text-lg font-display font-bold text-indigo-950 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-indigo-600" aria-hidden="true" />
+                    دروس وأنشطة الفرنسية — {tri}
+                  </h2>
+                  <span className="text-xs font-mono text-indigo-700 font-bold tabular-nums">
+                    {list.length} دروس
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {list.map((lesson) => (
+                    <article
+                      key={lesson.id}
+                      className="bg-white border border-slate-200 hover:border-indigo-300 rounded-2xl p-5 flex flex-col justify-between space-y-4 transition-colors"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+                          <span className="font-semibold text-indigo-700">{lesson.trimester}</span>
+                          <span className="font-mono tabular-nums">{lesson.exercises.length} تمارين</span>
+                        </div>
+                        <h3 className="text-base font-display font-bold text-slate-900 leading-snug">
+                          {lesson.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                          {lesson.subtitle}
+                        </p>
+                      </div>
+                      {onSelectLesson && (
+                        <button
+                          type="button"
+                          onClick={() => onSelectLesson(lesson)}
+                          className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-4 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5" aria-hidden="true" />
+                          افتح الدرس والتطبيقات
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </section>

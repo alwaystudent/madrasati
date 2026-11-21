@@ -30,9 +30,9 @@ export const TopBar: React.FC<TopBarProps> = ({ activeView, onNavigate }) => {
         <button
           type="button"
           onClick={() => handleNav('home')}
-          className="text-xl font-display font-extrabold tracking-tight text-slate-900 whitespace-nowrap shrink-0 cursor-pointer"
+          className="text-xl font-display font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 cursor-pointer"
         >
-          منارة التعلّم
+          أكاديمية عزيز
         </button>
 
         {/* Zone 2: 4 concise single-line text navigation links */}
