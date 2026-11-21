@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
-import { Menu, Timer } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Menu, Timer, Wifi, WifiOff } from 'lucide-react';
 import { SidebarNav, AppView } from './components/SidebarNav';
+import { SplashScreen } from './components/SplashScreen';
 import { MainLandingPortal } from './components/MainLandingPortal';
 import { LearningPathwayHome } from './components/LearningPathwayHome';
 import { SubjectBrowser } from './components/SubjectBrowser';
@@ -18,6 +19,8 @@ import { LegalPolicyView } from './components/LegalPolicyView';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { RewardToast } from './components/RewardToast';
 import { GRADES } from './data/tunisianCurriculum';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { usePWAInstall } from './hooks/usePWAInstall';
 import { useStudentProgress } from './hooks/useStudentProgress';
 import { Lesson } from './types/curriculum';
 
@@ -27,7 +30,11 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [portalLegalTab, setPortalLegalTab] = useState<'privacy' | 'terms' | null>(null);
   const [legalInitialTab, setLegalInitialTab] = useState<'privacy' | 'terms'>('privacy');
+  const [showSplash, setShowSplash] = useState(true);
+  const handleSplashComplete = useCallback(() => setShowSplash(false), []);
   const shouldReduceMotion = useReducedMotion();
+  const isOnline = useOnlineStatus();
+  const { cacheSummary } = usePWAInstall();
 
   const {
     progress,
@@ -123,10 +130,15 @@ export default function App() {
     }
 
     return (
-      <MainLandingPortal
-        initialName={progress.studentName}
-        initialGrade={progress.selectedGrade}
-        initialGovernorate={progress.schoolGovernorate}
+      <>
+        <AnimatePresence>
+          {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+        </AnimatePresence>
+        <PWAInstallBanner />
+        <MainLandingPortal
+          initialName={progress.studentName}
+          initialGrade={progress.selectedGrade}
+          initialGovernorate={progress.schoolGovernorate}
         authUser={authUser}
         savedStudents={savedStudents}
         cloudSyncStatus={cloudSyncStatus}
@@ -153,11 +165,15 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
+      </>
     );
   }
 
   return (
     <div className="min-h-screen flex text-slate-800 bg-[#f4faff]/80">
+      <AnimatePresence>
+        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      </AnimatePresence>
       <SidebarNav
         activeView={activeView}
         onNavigate={handleNavigate}
@@ -199,14 +215,43 @@ export default function App() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => handleNavigate('express')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-xl shadow-xs transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <Timer className="w-4 h-4" aria-hidden="true" />
-            ابدأ تحدي اليوم
-          </button>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div
+              role="status"
+              aria-live="polite"
+              title={
+                isOnline
+                  ? `متصل بالإنترنت — ${cacheSummary.totalCachedEntries} مورداً محفوظاً في Cache Storage`
+                  : 'غير متصل بالإنترنت — يتم تشغيل الدروس من Cache Storage'
+              }
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap ${
+                isOnline
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-300 text-amber-900'
+              }`}
+            >
+              {isOnline ? (
+                <Wifi className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
+              ) : (
+                <WifiOff className="w-3.5 h-3.5 text-amber-600 shrink-0" aria-hidden="true" />
+              )}
+              <span>{isOnline ? 'متصل' : 'بدون إنترنت'}</span>
+              {cacheSummary.totalCachedEntries > 0 && (
+                <span className="hidden md:inline text-[11px] font-normal opacity-80">
+                  • مخبّأ ({cacheSummary.totalCachedEntries})
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleNavigate('express')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-xl shadow-xs transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Timer className="w-4 h-4" aria-hidden="true" />
+              ابدأ تحدي اليوم
+            </button>
+          </div>
         </header>
 
         <PWAInstallBanner />

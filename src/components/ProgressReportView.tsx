@@ -147,7 +147,15 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
   onOpenParentFollowUp,
 }) => {
   const isOnline = useOnlineStatus();
-  const { canInstall, isInstalled, isOfflineReady, promptInstall } = usePWAInstall();
+  const {
+    canInstall,
+    isInstalled,
+    isOfflineReady,
+    cacheSummary,
+    isPrecaching,
+    precacheLessonsNow,
+    promptInstall,
+  } = usePWAInstall();
 
   const [periodLabel, setPeriodLabel] = useState('التقرير الشامل للمنهاج 2026');
   const [savingReport, setSavingReport] = useState(false);
@@ -1034,20 +1042,42 @@ export const ProgressReportView: React.FC<ProgressReportViewProps> = ({
                 <HardDrive className="w-4 h-4 text-teal-600" aria-hidden="true" />
               )}
               {!isOnline
-                ? 'أنت الآن في وضع العمل بدون إنترنت — جميع الدروس متاحة محلياً'
-                : isOfflineReady
-                ? 'المنصّة مخبّأة وجاهزة للعمل بدون إنترنت على هذا الجهاز (PWA)'
-                : 'العمل بدون إنترنت والنسخ الاحتياطي الشخصي على Google Drive'}
+                ? `أنت الآن في وضع العمل بدون إنترنت — ${
+                    cacheSummary.totalCachedEntries > 0
+                      ? `${cacheSummary.totalCachedEntries} مورداً متاحاً في Cache Storage`
+                      : 'الدروس المخبّأة متاحة محلياً'
+                  }`
+                : cacheSummary.hasCurriculumSnapshot
+                ? `متصل بالإنترنت — حزمة الدروس محمّلة يدوياً (${cacheSummary.totalCachedEntries} مورداً في Cache Storage)`
+                : `متصل بالإنترنت — التخزين أثناء التصفح فقط نشط (${cacheSummary.totalCachedEntries} مورداً) لتوفير الإنترنت`}
             </div>
             <h2 className="text-lg sm:text-xl font-display font-bold text-slate-900">
               العمل بدون إنترنت وحفظ النسخة الاحتياطية على سحابة Google Drive
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-3xl">
-              احفظ نسخة احتياطية كاملة لتقدّمك ودروسك الـ {LESSONS.length} على حساب Google Drive الخاص بك لاسترجاعها من أي جهاز في أي وقت، أو ثبّت المنصة كتطبيق يعمل دون اتصال بالإنترنت.
+              تعتمد المنصة طريقتين للتخزين في Cache Storage: أولاً التخزين التلقائي أثناء التصفح فقط (Runtime Caching) حتى لا يستهلك إنترنت إضافياً، وثانياً التحميل اليدوي الكامل لموارد الدروس الـ {LESSONS.length} للعمل دون نت.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {isOnline && (
+              <button
+                type="button"
+                disabled={isPrecaching}
+                onClick={() => void precacheLessonsNow()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 disabled:opacity-60 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${isPrecaching ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+                {isPrecaching
+                  ? 'جارٍ التحميل...'
+                  : cacheSummary.hasCurriculumSnapshot
+                  ? 'تحديث موارد الدروس'
+                  : 'تحميل موارد الدروس'}
+              </button>
+            )}
             {canInstall && (
               <button
                 type="button"

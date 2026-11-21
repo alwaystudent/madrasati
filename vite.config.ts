@@ -60,12 +60,67 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webp,woff2}'],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+          // Precache only the lightweight app shell; lesson scripts and media are cached
+          // lazily during browsing via runtimeCaching (or explicitly via manual download).
+          globPatterns: ['index.html', 'manifest.webmanifest', 'icon.svg', 'apple-touch-icon.png'],
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api\//, /^\/__\//],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
           runtimeCaching: [
+            {
+              urlPattern: /^\/api\/.*/i,
+              handler: 'NetworkOnly',
+            },
+            {
+              urlPattern: /\/offline-lessons-snapshot\.json$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'aziz-academy-core-lessons-v1',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 60,
+                },
+              },
+            },
+            {
+              urlPattern: ({url, sameOrigin}) =>
+                sameOrigin &&
+                (url.pathname.startsWith('/assets/') ||
+                  url.pathname.startsWith('/src/data/') ||
+                  url.pathname.startsWith('/src/components/') ||
+                  url.pathname.startsWith('/src/services/') ||
+                  url.pathname.startsWith('/src/hooks/')),
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'aziz-academy-lessons-cache',
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+                expiration: {
+                  maxEntries: 160,
+                  maxAgeSeconds: 60 * 60 * 24 * 60,
+                },
+              },
+            },
+            {
+              urlPattern: ({url, request}) =>
+                url.pathname.startsWith('/src/assets/') ||
+                request.destination === 'image',
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'aziz-academy-media-cache',
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+                expiration: {
+                  maxEntries: 80,
+                  maxAgeSeconds: 60 * 60 * 24 * 60,
+                },
+              },
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'StaleWhileRevalidate',
@@ -91,22 +146,12 @@ export default defineConfig(() => {
                 },
               },
             },
-            {
-              urlPattern: /^\/src\/assets\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'aziz-academy-assets',
-                expiration: {
-                  maxEntries: 30,
-                  maxAgeSeconds: 60 * 60 * 24 * 60,
-                },
-              },
-            },
           ],
         },
         devOptions: {
           enabled: true,
           type: 'module',
+          navigateFallback: 'index.html',
         },
       }),
       // Copies src/assets into dist/ so root-relative URLs like
