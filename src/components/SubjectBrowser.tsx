@@ -231,6 +231,13 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
                     const completion = progress.completedLessons[lesson.id];
                     const stepsDone = (progress.completedSteps[lesson.id] || []).length;
                     const stepPercent = Math.round((stepsDone / lesson.steps.length) * 100);
+                    const quizActivityId = `quiz-${lesson.id}`.slice(0, 80);
+                    const bestQuiz = progress.activityLog
+                      .filter((a) => a.lessonId === quizActivityId)
+                      .reduce<{ score: number; total: number } | null>((best, a) => {
+                        if (!best || a.score > best.score) return { score: a.score, total: a.total };
+                        return best;
+                      }, null);
 
                     return (
                       <article
@@ -255,7 +262,7 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
                                 <span className="truncate">{lesson.trimester}</span>
                               </div>
                               <span className="font-mono tabular-nums shrink-0">
-                                {lesson.exercises.length} تمارين
+                                {lesson.exercises.length} تمارين + اختبار
                               </span>
                             </div>
 
@@ -282,7 +289,7 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
                             </div>
 
                             <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-1.5 text-xs font-medium">
+                              <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
                                 {completion ? (
                                   <>
                                     <CheckCircle2
@@ -296,6 +303,11 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
                                 ) : (
                                   <span className="text-slate-500 font-mono tabular-nums">
                                     الاستكشاف: {stepsDone}/{lesson.steps.length}
+                                  </span>
+                                )}
+                                {bestQuiz && (
+                                  <span className="text-indigo-700 font-semibold font-mono tabular-nums">
+                                    · اختبار: {bestQuiz.score}/{bestQuiz.total}
                                   </span>
                                 )}
                               </div>

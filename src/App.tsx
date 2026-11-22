@@ -8,6 +8,7 @@ import { LearningPathwayHome } from './components/LearningPathwayHome';
 import { SubjectBrowser } from './components/SubjectBrowser';
 import { LessonWorkspace } from './components/LessonWorkspace';
 import { VisualMediaStudio } from './components/VisualMediaStudio';
+import { VisualLessonModal } from './components/VisualLessonModal';
 import { FrenchTrainingStudio, FrenchStudioTab } from './components/FrenchTrainingStudio';
 import { PracticeBankView } from './components/PracticeBankView';
 import { ExpressChallenge } from './components/ExpressChallenge';
@@ -19,6 +20,7 @@ import { LegalPolicyView } from './components/LegalPolicyView';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { RewardToast } from './components/RewardToast';
 import { GRADES } from './data/tunisianCurriculum';
+import { VisualLessonModule } from './data/visualMediaData';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useStudentProgress } from './hooks/useStudentProgress';
@@ -31,6 +33,7 @@ export default function App() {
   const [portalLegalTab, setPortalLegalTab] = useState<'privacy' | 'terms' | null>(null);
   const [legalInitialTab, setLegalInitialTab] = useState<'privacy' | 'terms'>('privacy');
   const [frenchStudioInitialTab, setFrenchStudioInitialTab] = useState<FrenchStudioTab>('vocab');
+  const [activeVisualModalModule, setActiveVisualModalModule] = useState<VisualLessonModule | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const handleSplashComplete = useCallback(() => setShowSplash(false), []);
   const shouldReduceMotion = useReducedMotion();
@@ -305,6 +308,7 @@ export default function App() {
                 onOpenFrenchFavorites={() => openFrenchStudio('favorites')}
                 favoriteWordsCount={favoriteWords.length}
                 onOpenVisualStudio={() => handleNavigate('visual_studio')}
+                onOpenVisualModule={(mod) => setActiveVisualModalModule(mod)}
                 onOpenReports={() => handleNavigate('reports')}
                 onOpenParentFollowUp={() => handleNavigate('parent_followup')}
               />
@@ -324,6 +328,7 @@ export default function App() {
               <VisualMediaStudio
                 selectedGrade={progress.selectedGrade}
                 studentName={progress.studentName}
+                onOpenVisualModule={(mod) => setActiveVisualModalModule(mod)}
                 onRecordVisualStudy={(
                   moduleId,
                   title,
@@ -397,10 +402,12 @@ export default function App() {
                 lesson={activeLesson}
                 studentName={progress.studentName}
                 completedStepIndices={progress.completedSteps[activeLesson.id] || []}
+                activityLog={progress.activityLog}
                 favoriteWordKeys={favoriteWordKeys}
                 favoriteCount={favoriteWords.length}
                 onToggleFavoriteWord={toggleFavoriteWord}
                 onOpenFavoritesInStudio={() => openFrenchStudio('favorites')}
+                onOpenVisualModule={(mod) => setActiveVisualModalModule(mod)}
                 onStepComplete={markStepCompleted}
                 onLessonComplete={(score, total, points) =>
                   recordLessonResult(
@@ -412,6 +419,18 @@ export default function App() {
                     total,
                     points,
                     'lesson'
+                  )
+                }
+                onQuizComplete={(score, total, points) =>
+                  recordLessonResult(
+                    `quiz-${activeLesson.id}`.slice(0, 80),
+                    `اختبار قصير: ${activeLesson.title}`.slice(0, 160),
+                    activeLesson.subjectId,
+                    activeLesson.grade,
+                    score,
+                    total,
+                    points,
+                    'exam'
                   )
                 }
                 onExit={() => handleNavigate('subjects')}
@@ -599,6 +618,31 @@ export default function App() {
           </div>
         </footer>
       </div>
+
+      <VisualLessonModal
+        module={activeVisualModalModule}
+        onClose={() => setActiveVisualModalModule(null)}
+        onRecordVisualStudy={(
+          moduleId,
+          title,
+          grade,
+          subjectId,
+          score,
+          total,
+          points
+        ) =>
+          recordLessonResult(
+            moduleId,
+            title,
+            subjectId,
+            grade,
+            score,
+            total,
+            points,
+            'lesson'
+          )
+        }
+      />
 
       <RewardToast
         notification={rewardNotification}

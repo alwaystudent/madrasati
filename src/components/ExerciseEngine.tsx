@@ -18,6 +18,7 @@ interface ExerciseEngineProps {
   exercises: Exercise[];
   onComplete: (score: number, total: number, pointsEarned: number) => void;
   onBackToSim?: () => void;
+  onOpenPostLessonQuiz?: () => void;
   modeLabel?: string;
   supportTip?: string;
 }
@@ -26,6 +27,7 @@ export const ExerciseEngine: React.FC<ExerciseEngineProps> = ({
   exercises,
   onComplete,
   onBackToSim,
+  onOpenPostLessonQuiz,
   modeLabel = 'تمارين تفاعلية متنوعة',
   supportTip,
 }) => {
@@ -188,6 +190,16 @@ export const ExerciseEngine: React.FC<ExerciseEngineProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          {onOpenPostLessonQuiz && (
+            <button
+              type="button"
+              onClick={onOpenPostLessonQuiz}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-200" aria-hidden="true" />
+              ابدأ الاختبار القصير للدرس (تصحيح تلقائي)
+            </button>
+          )}
           <button
             type="button"
             onClick={handleRestart}

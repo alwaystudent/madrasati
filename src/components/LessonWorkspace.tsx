@@ -8,12 +8,16 @@ import {
   CheckCircle2,
   Circle,
   ChevronLeft,
+  Clapperboard,
+  ClipboardCheck,
   Volume2,
 } from 'lucide-react';
-import { Lesson } from '../types/curriculum';
+import { ActivityEntry, Lesson } from '../types/curriculum';
 import { GRADES, SUBJECTS } from '../data/tunisianCurriculum';
+import { VISUAL_MODULES, VisualLessonModule } from '../data/visualMediaData';
 import { SimulationStage } from './simulations/SimulationStage';
 import { ExerciseEngine } from './ExerciseEngine';
+import { PostLessonQuiz } from './PostLessonQuiz';
 import { LessonTutorChat } from './LessonTutorChat';
 import { FrenchSpeakableText } from './FrenchSpeakableText';
 import { FrenchWordGlossaryCorner } from './FrenchWordGlossaryCorner';
@@ -25,12 +29,15 @@ interface LessonWorkspaceProps {
   lesson: Lesson;
   studentName?: string;
   completedStepIndices: number[];
+  activityLog?: ActivityEntry[];
   favoriteWordKeys?: Set<string>;
   favoriteCount?: number;
   onToggleFavoriteWord?: (entry: FrenchGlossaryEntry) => void;
   onOpenFavoritesInStudio?: () => void;
+  onOpenVisualModule?: (mod: VisualLessonModule) => void;
   onStepComplete: (lessonId: string, stepIndex: number) => void;
   onLessonComplete: (score: number, total: number, pointsEarned: number) => void;
+  onQuizComplete?: (score: number, total: number, pointsEarned: number) => void;
   onExit: () => void;
 }
 
@@ -38,15 +45,18 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
   lesson,
   studentName = 'عزيز',
   completedStepIndices,
+  activityLog = [],
   favoriteWordKeys,
   favoriteCount = 0,
   onToggleFavoriteWord,
   onOpenFavoritesInStudio,
+  onOpenVisualModule,
   onStepComplete,
   onLessonComplete,
+  onQuizComplete,
   onExit,
 }) => {
-  const [activeTab, setActiveTab] = useState<'lab' | 'exercises' | 'tutor'>('lab');
+  const [activeTab, setActiveTab] = useState<'lab' | 'exercises' | 'quiz' | 'tutor'>('lab');
   const [activeStepIdx, setActiveStepIdx] = useState(0);
   const [speechSpeed, setSpeechSpeed] = useState<SpeechSpeed>('normal');
   const [showGlossaryCorner, setShowGlossaryCorner] = useState(false);
@@ -56,6 +66,28 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
   const gradeMeta = GRADES.find((g) => g.grade === lesson.grade);
   const currentStep = lesson.steps[activeStepIdx];
   const isStepDone = completedStepIndices.includes(activeStepIdx);
+
+  const quizActivityId = `quiz-${lesson.id}`.slice(0, 80);
+  const previousQuizBest = activityLog
+    .filter((a) => a.lessonId === quizActivityId)
+    .reduce<{ score: number; total: number } | null>((best, entry) => {
+      if (!best || entry.score > best.score) {
+        return { score: entry.score, total: entry.total };
+      }
+      return best;
+    }, null);
+
+  const matchingVisualModule =
+    VISUAL_MODULES.find(
+      (m) =>
+        m.grade === lesson.grade &&
+        m.subjectId === lesson.subjectId &&
+        m.trimester === lesson.trimester
+    ) ??
+    VISUAL_MODULES.find(
+      (m) => m.grade === lesson.grade && m.subjectId === lesson.subjectId
+    ) ??
+    null;
 
   const handleCompleteStep = () => {
     onStepComplete(lesson.id, activeStepIdx);
@@ -131,6 +163,23 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('quiz')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              activeTab === 'quiz'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ClipboardCheck className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+            الاختبار القصير
+            {previousQuizBest && (
+              <span className="font-mono text-xs text-emerald-700 tabular-nums">
+                ({previousQuizBest.score}/{previousQuizBest.total})
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('tutor')}
             className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               activeTab === 'tutor'
@@ -156,13 +205,25 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-7 xl:col-span-8 space-y-6">
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4">
-                <div>
-                  <h2 className="text-base sm:text-lg font-display font-bold text-slate-900">
-                    {lesson.simTitle}
-                  </h2>
-                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">
-                    {lesson.simDescription}
-                  </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base sm:text-lg font-display font-bold text-slate-900">
+                      {lesson.simTitle}
+                    </h2>
+                    <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                      {lesson.simDescription}
+                    </p>
+                  </div>
+                  {matchingVisualModule && onOpenVisualModule && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenVisualModule(matchingVisualModule)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-sky-900 bg-sky-100 hover:bg-sky-200 border border-sky-300 rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                    >
+                      <Clapperboard className="w-4 h-4 text-sky-700" aria-hidden="true" />
+                      شاهد الدرس المرئي
+                    </button>
+                  )}
                 </div>
                 <SimulationStage simType={lesson.simType} />
               </div>
@@ -345,6 +406,14 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveTab('quiz')}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-4 text-xs font-semibold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                  الاختبار القصير لتثبيت الفهم
+                </button>
+                <button
+                  type="button"
                   onClick={handleAskAboutStep}
                   className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-4 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
                 >
@@ -363,8 +432,28 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
             exercises={lesson.exercises}
             onComplete={onLessonComplete}
             onBackToSim={() => setActiveTab('lab')}
+            onOpenPostLessonQuiz={() => setActiveTab('quiz')}
             modeLabel={`تمارين: ${lesson.title}`}
             supportTip={lesson.supportTip}
+          />
+        </div>
+      )}
+
+      {activeTab === 'quiz' && (
+        <div className="max-w-3xl mx-auto">
+          <PostLessonQuiz
+            lesson={lesson}
+            studentName={studentName}
+            previousBest={previousQuizBest}
+            onQuizComplete={(score, total, points) => {
+              if (onQuizComplete) {
+                onQuizComplete(score, total, points);
+              } else {
+                onLessonComplete(score, total, points);
+              }
+            }}
+            onBackToLab={() => setActiveTab('lab')}
+            onExitLesson={onExit}
           />
         </div>
       )}

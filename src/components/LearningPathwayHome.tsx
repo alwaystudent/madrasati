@@ -19,6 +19,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { BADGES, GRADES, SUBJECTS, TRIMESTERS } from '../data/tunisianCurriculum';
+import { VISUAL_MODULES, VisualLessonModule } from '../data/visualMediaData';
 import {
   Lesson,
   LevelInfo,
@@ -53,6 +54,7 @@ interface LearningPathwayHomeProps {
   onOpenFrenchFavorites?: () => void;
   favoriteWordsCount?: number;
   onOpenVisualStudio?: () => void;
+  onOpenVisualModule?: (mod: VisualLessonModule) => void;
   onOpenReports?: () => void;
   onOpenParentFollowUp?: () => void;
 }
@@ -77,6 +79,7 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
   onOpenFrenchFavorites,
   favoriteWordsCount = 0,
   onOpenVisualStudio,
+  onOpenVisualModule,
   onOpenReports,
   onOpenParentFollowUp,
 }) => {
@@ -384,31 +387,54 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
 
       {/* Featured Visual Content Studio Card */}
       {onOpenVisualStudio && (
-        <div className="bg-gradient-to-l from-sky-50 via-white to-amber-50/70 border-2 border-sky-200 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Clapperboard className="w-6 h-6" aria-hidden="true" />
-            </div>
-            <div className="space-y-0.5">
-              <div className="text-xs sm:text-sm font-semibold text-sky-700">
-                متاح لجميع الأقسام (3 ← 6 ابتدائي) · رسوم متحركة وتعليق صوتي
+        <div className="bg-gradient-to-l from-sky-50 via-white to-amber-50/70 border-2 border-sky-200 rounded-3xl p-5 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Clapperboard className="w-6 h-6" aria-hidden="true" />
               </div>
-              <h2 className="text-base sm:text-lg font-display font-bold text-slate-900">
-                قسم المحتوى المرئي لتبسيط العلوم والرياضيات واللغات والاجتماعيات
-              </h2>
-              <p className="text-xs sm:text-sm font-medium text-slate-600">
-                شاهد مقاطع متحركة مبسّطة مخصّصة لـ {gradeMeta.shortLabel} تشرح المفاهيم الأساسية بالمشاهد التفاعلية.
-              </p>
+              <div className="space-y-0.5">
+                <div className="text-xs sm:text-sm font-semibold text-sky-700">
+                  متاح لجميع الأقسام (3 ← 6 ابتدائي) · رسوم متحركة وتعليق صوتي
+                </div>
+                <h2 className="text-base sm:text-lg font-display font-bold text-slate-900">
+                  قسم المحتوى المرئي لتبسيط العلوم والرياضيات واللغات والاجتماعيات
+                </h2>
+                <p className="text-xs sm:text-sm font-medium text-slate-600">
+                  اضغط على أي درس مرئي لفتحه في نافذة منبثقة مخصّصة لـ {gradeMeta.shortLabel}.
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={onOpenVisualStudio}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-2xl transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
+            >
+              <Play className="w-4 h-4" aria-hidden="true" />
+              تصفّح كل الدروس المرئية
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onOpenVisualStudio}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-2xl transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
-          >
-            <Play className="w-4 h-4" aria-hidden="true" />
-            افتح المحتوى المرئي
-          </button>
+
+          {onOpenVisualModule && (
+            <div className="pt-3 border-t border-sky-200/70 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-600 ml-1">
+                روابط الدروس المرئية السريعة:
+              </span>
+              {VISUAL_MODULES.filter((m) => m.grade === progress.selectedGrade)
+                .slice(0, 4)
+                .map((mod) => (
+                  <button
+                    key={mod.id}
+                    type="button"
+                    onClick={() => onOpenVisualModule(mod)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-sky-900 bg-white hover:bg-sky-100 border border-sky-200 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <Play className="w-3 h-3 text-sky-600 shrink-0" aria-hidden="true" />
+                    <span>{mod.title}</span>
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -506,6 +532,13 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
                     const subject = SUBJECTS[lesson.subjectId];
                     const completion = progress.completedLessons[lesson.id];
                     const stepsDone = (progress.completedSteps[lesson.id] || []).length;
+                    const quizActivityId = `quiz-${lesson.id}`.slice(0, 80);
+                    const bestQuiz = progress.activityLog
+                      .filter((a) => a.lessonId === quizActivityId)
+                      .reduce<{ score: number; total: number } | null>((best, a) => {
+                        if (!best || a.score > best.score) return { score: a.score, total: a.total };
+                        return best;
+                      }, null);
 
                     return (
                       <div
@@ -541,7 +574,7 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
                               <span>{lesson.trimester}</span>
                               <span aria-hidden="true">·</span>
                               <span className="font-mono tabular-nums">
-                                {lesson.exercises.length} تمارين
+                                {lesson.exercises.length} تمارين + اختبار قصير
                               </span>
                             </div>
                             <h3 className="text-base sm:text-lg font-display font-bold text-slate-900 leading-snug">
@@ -552,14 +585,19 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
                         </div>
 
                         <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200/70">
-                          <div className="text-xs font-mono tabular-nums text-slate-600">
+                          <div className="text-xs font-mono tabular-nums text-slate-600 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                             {completion ? (
                               <span className="text-emerald-800 font-semibold">
-                                أفضل نتيجة: {completion.bestScore}/{completion.totalQuestions}
+                                التمارين: {completion.bestScore}/{completion.totalQuestions}
                               </span>
                             ) : (
                               <span>
                                 الاستكشاف: {stepsDone}/{lesson.steps.length}
+                              </span>
+                            )}
+                            {bestQuiz && (
+                              <span className="text-indigo-700 font-semibold">
+                                · الاختبار: {bestQuiz.score}/{bestQuiz.total}
                               </span>
                             )}
                           </div>

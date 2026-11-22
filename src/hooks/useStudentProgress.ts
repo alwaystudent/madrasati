@@ -1127,6 +1127,7 @@ export function useStudentProgress() {
               }
             : prev.completedLessons;
 
+        const isPostLessonQuiz = lessonId.startsWith('quiz-');
         let nextState: StudentProgress = {
           ...prev,
           points: prev.points + pointsFromExercises,
@@ -1135,7 +1136,7 @@ export function useStudentProgress() {
           lastActiveDate: today,
           completedLessons: updatedLessons,
           expressChallengesCompleted:
-            mode === 'express' || mode === 'exam'
+            !isPostLessonQuiz && (mode === 'express' || mode === 'exam')
               ? prev.expressChallengesCompleted + 1
               : prev.expressChallengesCompleted,
         };
@@ -1187,14 +1188,15 @@ export function useStudentProgress() {
         setRewardNotification({
           id: `${Date.now()}`,
           pointsEarned: totalAwarded,
-          reason:
-            mode === 'express'
-              ? `إتمام التحدي السريع (${score}/${total})`
-              : mode === 'exam'
-              ? `إتمام الاختبار التجريبي (${score}/${total})`
-              : mode === 'french'
-              ? `إتمام تدريب الفرنسية (${score}/${total})`
-              : `إتمام تمارين «${title}» (${score}/${total})`,
+          reason: isPostLessonQuiz
+            ? `إتمام ${title} (${score}/${total})`
+            : mode === 'express'
+            ? `إتمام التحدي السريع (${score}/${total})`
+            : mode === 'exam'
+            ? `إتمام الاختبار التجريبي (${score}/${total})`
+            : mode === 'french'
+            ? `إتمام تدريب الفرنسية (${score}/${total})`
+            : `إتمام تمارين «${title}» (${score}/${total})`,
           unlockedBadges: unlockedNow,
         });
 
