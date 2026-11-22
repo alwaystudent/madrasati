@@ -1,32 +1,52 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   BookMarked,
   BookOpen,
   Calendar,
   CheckCircle2,
   Ear,
+  Eye,
+  EyeOff,
   FileText,
   GraduationCap,
   Languages,
   Play,
   RotateCcw,
+  Search,
   Sparkles,
+  Star,
+  Trash2,
   Volume2,
   XCircle,
 } from 'lucide-react';
 import { GRADES, TRIMESTERS } from '../data/tunisianCurriculum';
 import { FRENCH_TRAINING_PROGRAMS } from '../data/frenchTrainingData';
-import { GradeLevel, Lesson, TrimesterType } from '../types/curriculum';
+import { FavoriteFrenchWord, GradeLevel, Lesson, TrimesterType } from '../types/curriculum';
+import { FrenchGlossaryEntry } from '../utils/frenchGlossary';
 import { speakFrenchText, SpeechSpeed } from '../utils/frenchSpeech';
 import { FrenchSpeakableText } from './FrenchSpeakableText';
 import { FrenchWordGlossaryCorner } from './FrenchWordGlossaryCorner';
 import { ExerciseEngine } from './ExerciseEngine';
 
+export type FrenchStudioTab =
+  | 'vocab'
+  | 'listening'
+  | 'grammar'
+  | 'reading'
+  | 'glossary'
+  | 'favorites'
+  | 'lessons';
+
 interface FrenchTrainingStudioProps {
   selectedGrade: GradeLevel;
   studentName: string;
   frenchLessons?: Lesson[];
+  favoriteWords: FavoriteFrenchWord[];
+  isCloudSynced?: boolean;
+  initialTab?: FrenchStudioTab;
   onSelectLesson?: (lesson: Lesson) => void;
+  onToggleFavoriteWord: (entry: FrenchGlossaryEntry) => void;
+  onRemoveFavoriteWord: (wordId: string) => void;
   onRecordFrenchTraining: (
     title: string,
     score: number,
@@ -34,8 +54,6 @@ interface FrenchTrainingStudioProps {
     pointsEarned: number
   ) => void;
 }
-
-type StudioTab = 'vocab' | 'listening' | 'grammar' | 'reading' | 'glossary' | 'lessons';
 
 function extractFrenchThemeLabel(theme: string): string {
   const match = theme.match(/\(([^)]+)\)/);
@@ -46,13 +64,75 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   selectedGrade,
   studentName,
   frenchLessons = [],
+  favoriteWords,
+  isCloudSynced = false,
+  initialTab,
   onSelectLesson,
+  onToggleFavoriteWord,
+  onRemoveFavoriteWord,
   onRecordFrenchTraining,
 }) => {
-  const [activeTab, setActiveTab] = useState<StudioTab>('vocab');
+  const [activeTab, setActiveTab] = useState<FrenchStudioTab>(initialTab ?? 'vocab');
   const [speed, setSpeed] = useState<SpeechSpeed>('normal');
   const [selectedTrimester, setSelectedTrimester] = useState<'all' | TrimesterType>('all');
   const [selectedTheme, setSelectedTheme] = useState<string>('all');
+
+  // Favorite words review state
+  const [favQuery, setFavQuery] = useState('');
+  const [favSortMode, setFavSortMode] = useState<'alpha' | 'recent'>('alpha');
+  const [hideMeanings, setHideMeanings] = useState(false);
+  const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
+  const [favQuizActive, setFavQuizActive] = useState(false);
+  const [favQuizTarget, setFavQuizTarget] = useState<FavoriteFrenchWord | null>(null);
+  const [favQuizOptions, setFavQuizOptions] = useState<FavoriteFrenchWord[]>([]);
+  const [favQuizPickedId, setFavQuizPickedId] = useState<string | null>(null);
+  const [favQuizStats, setFavQuizStats] = useState({ correct: 0, total: 0 });
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const favoriteWordKeys = useMemo(
+    () => new Set(favoriteWords.map((w) => w.word.trim().toLowerCase())),
+    [favoriteWords]
+  );
+
+  const visibleFavorites = useMemo(() => {
+    const q = favQuery.trim().toLowerCase();
+    const list = favoriteWords.filter(
+      (w) =>
+        !q ||
+        w.word.toLowerCase().includes(q) ||
+        w.arMeaning.toLowerCase().includes(q)
+    );
+    if (favSortMode === 'recent') {
+      return [...list].sort((a, b) => b.savedAtIso.localeCompare(a.savedAtIso));
+    }
+    return [...list].sort((a, b) =>
+      a.word.localeCompare(b.word, 'fr', { sensitivity: 'base' })
+    );
+  }, [favoriteWords, favQuery, favSortMode]);
+
+  const startNextFavoriteRound = (pool: FavoriteFrenchWord[]) => {
+    if (pool.length < 2) {
+      setFavQuizActive(false);
+      return;
+    }
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const target = shuffled[0];
+    const distractors = shuffled.slice(1, Math.min(4, shuffled.length));
+    const options = [target, ...distractors].sort(() => Math.random() - 0.5);
+    setFavQuizTarget(target);
+    setFavQuizOptions(options);
+    setFavQuizPickedId(null);
+    setFavQuizActive(true);
+    speakFrenchText(
+      target.article ? `${target.article.split('/')[0].trim()} ${target.word}` : target.word,
+      { speed }
+    );
+  };
 
   // Listening exercise state
   const [listenIdx, setListenIdx] = useState(0);
@@ -318,6 +398,23 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
           >
             <BookMarked className="w-4 h-4 text-rose-600" aria-hidden="true" />
             فهرس الكلمات
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('favorites')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'favorites'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Star
+              className={`w-4 h-4 ${
+                favoriteWords.length > 0 ? 'fill-amber-400 text-amber-500' : 'text-amber-500'
+              }`}
+              aria-hidden="true"
+            />
+            كلماتي المفضلة ({favoriteWords.length})
           </button>
           <button
             type="button"
@@ -790,7 +887,344 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
           selectedGrade={selectedGrade}
           trimester={selectedTrimester}
           speed={speed}
+          favoriteWordKeys={favoriteWordKeys}
+          favoriteCount={favoriteWords.length}
+          onToggleFavoriteWord={onToggleFavoriteWord}
+          onOpenFavoritesReview={() => setActiveTab('favorites')}
         />
+      )}
+
+      {/* TAB 6: Student's Saved Favorite Words Review (كلماتي المفضلة) */}
+      {activeTab === 'favorites' && (
+        <div className="bg-white border border-amber-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-amber-100">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-500" aria-hidden="true" />
+                </div>
+                <h2 className="text-lg sm:text-xl font-display font-bold text-slate-900">
+                  كلماتي المفضلة — مراجعة {studentName || 'عزيز'}
+                </h2>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span>
+                  {favoriteWords.length} كلمة محفوظة للمراجعة
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  {isCloudSynced
+                    ? 'متزامنة مع حساب التلميذ السحابي'
+                    : 'محفوظة في حساب التلميذ على هذا الجهاز'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {favoriteWords.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (favQuizActive) {
+                      setFavQuizActive(false);
+                    } else {
+                      setFavQuizStats({ correct: 0, total: 0 });
+                      startNextFavoriteRound(favoriteWords);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors whitespace-nowrap cursor-pointer ${
+                    favQuizActive
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600'
+                  }`}
+                >
+                  <Ear className="w-3.5 h-3.5" aria-hidden="true" />
+                  {favQuizActive ? 'إغلاق تحدّي السمع' : 'تحدّي السمع لكلماتي'}
+                </button>
+              )}
+
+              {favoriteWords.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHideMeanings((v) => !v);
+                    setRevealedIds({});
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors whitespace-nowrap cursor-pointer ${
+                    hideMeanings
+                      ? 'bg-amber-100 text-amber-950 border-amber-300'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {hideMeanings ? (
+                    <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                  ) : (
+                    <EyeOff className="w-3.5 h-3.5" aria-hidden="true" />
+                  )}
+                  {hideMeanings ? 'إظهار كل المعاني' : 'اختبر ذاكرتك (إخفاء المعاني)'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('glossary')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl whitespace-nowrap cursor-pointer"
+              >
+                <BookMarked className="w-3.5 h-3.5" aria-hidden="true" />
+                إضافة كلمات من الفهرس
+              </button>
+            </div>
+          </div>
+
+          {/* Interactive Audio Recall Drill on Favorite Words */}
+          {favQuizActive && favQuizTarget && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-display font-bold text-indigo-950">
+                    استمع إلى الكلمة واختر البطاقة الصحيحة
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    التقدّم: <span className="font-mono tabular-nums">{favQuizStats.correct} / {favQuizStats.total}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    speakFrenchText(
+                      favQuizTarget.article
+                        ? `${favQuizTarget.article.split('/')[0].trim()} ${favQuizTarget.word}`
+                        : favQuizTarget.word,
+                      { speed }
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer"
+                >
+                  <Volume2 className="w-4 h-4" aria-hidden="true" />
+                  استمع للكلمة مجدداً
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" dir="ltr">
+                {favQuizOptions.map((opt) => {
+                  const isPicked = favQuizPickedId === opt.id;
+                  const isTarget = opt.id === favQuizTarget.id;
+                  const showResult = favQuizPickedId !== null;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      disabled={showResult}
+                      onClick={() => {
+                        setFavQuizPickedId(opt.id);
+                        setFavQuizStats((s) => ({
+                          correct: s.correct + (opt.id === favQuizTarget.id ? 1 : 0),
+                          total: s.total + 1,
+                        }));
+                      }}
+                      className={`p-3.5 rounded-xl border text-left text-base font-bold transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                        showResult && isTarget
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-950'
+                          : showResult && isPicked && !isTarget
+                          ? 'bg-rose-50 border-rose-400 text-rose-950'
+                          : 'bg-white border-slate-200 hover:border-indigo-400 text-slate-900'
+                      }`}
+                    >
+                      <span>
+                        {opt.article ? `${opt.article} ` : ''}
+                        {opt.word}
+                      </span>
+                      {showResult && isTarget && (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+                      )}
+                      {showResult && isPicked && !isTarget && (
+                        <XCircle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {favQuizPickedId !== null && (
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <span className="text-xs font-semibold text-slate-700">
+                    {favQuizPickedId === favQuizTarget.id
+                      ? 'Bravo ! إجابة صحيحة.'
+                      : `الكلمة الصحيحة: ${favQuizTarget.word}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => startNextFavoriteRound(favoriteWords)}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl cursor-pointer"
+                  >
+                    كلمة أخرى
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {favoriteWords.length === 0 ? (
+            <div className="p-8 rounded-2xl bg-amber-50/40 border border-amber-200/80 text-center space-y-4">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-white border border-amber-200 flex items-center justify-center">
+                <Star className="w-6 h-6 text-amber-500" aria-hidden="true" />
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <h3 className="text-base font-display font-bold text-slate-900">
+                  قائمة «كلماتي المفضلة» فارغة حالياً
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  افتح ركن «فهرس الكلمات» واضغط على أيقونة النجمة بجانب أي كلمة تودّ حفظها في حسابك لمراجعتها وتثبيتها هنا.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('glossary')}
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors cursor-pointer"
+              >
+                <BookMarked className="w-4 h-4" aria-hidden="true" />
+                تصفّح فهرس الكلمات لاختيار كلماتك
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="relative flex-1">
+                  <Search
+                    className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    aria-hidden="true"
+                  />
+                  <input
+                    type="search"
+                    value={favQuery}
+                    onChange={(e) => setFavQuery(e.target.value)}
+                    placeholder="ابحث داخل كلماتك المفضلة..."
+                    className="w-full pr-9 pl-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-xl text-xs shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setFavSortMode('alpha')}
+                    className={`px-3 py-1.5 font-semibold rounded-lg cursor-pointer whitespace-nowrap ${
+                      favSortMode === 'alpha'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    هجائياً (A → Z)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFavSortMode('recent')}
+                    className={`px-3 py-1.5 font-semibold rounded-lg cursor-pointer whitespace-nowrap ${
+                      favSortMode === 'recent'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    الأحدث حفظاً
+                  </button>
+                </div>
+              </div>
+
+              {visibleFavorites.length === 0 ? (
+                <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center text-sm text-slate-600">
+                  لا توجد كلمات محفوظة تطابق بحثك الحالي.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {visibleFavorites.map((item) => {
+                    const isMeaningVisible = !hideMeanings || Boolean(revealedIds[item.id]);
+                    return (
+                      <article
+                        key={item.id}
+                        className="p-4 rounded-xl bg-amber-50/40 border border-amber-200 hover:border-amber-300 flex flex-col justify-between gap-3 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-2" dir="ltr">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-100 text-indigo-800 text-[11px] font-bold shrink-0">
+                              {item.letter}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                speakFrenchText(
+                                  item.article
+                                    ? `${item.article.split('/')[0].trim()} ${item.word}`
+                                    : item.word,
+                                  { speed }
+                                )
+                              }
+                              className="text-left text-base sm:text-lg font-bold text-slate-900 hover:text-indigo-700 truncate cursor-pointer"
+                            >
+                              {item.article && (
+                                <span className="text-indigo-600 font-semibold mr-1 text-xs">
+                                  {item.article}
+                                </span>
+                              )}
+                              {item.word}
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                speakFrenchText(
+                                  item.article
+                                    ? `${item.article.split('/')[0].trim()} ${item.word}`
+                                    : item.word,
+                                  { speed }
+                                )
+                              }
+                              aria-label={`استمع إلى ${item.word}`}
+                              className="p-1.5 rounded-lg bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 cursor-pointer"
+                            >
+                              <Volume2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onRemoveFavoriteWord(item.id)}
+                              aria-label={`إزالة ${item.word} من كلماتي المفضلة`}
+                              title="إزالة من كلماتي المفضلة"
+                              className="p-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between gap-2">
+                          {isMeaningVisible ? (
+                            <div className="text-sm font-bold text-slate-900">
+                              {item.arMeaning}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRevealedIds((prev) => ({ ...prev, [item.id]: true }))
+                              }
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900 cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                              إظهار المعنى
+                            </button>
+                          )}
+                          <span className="text-[11px] font-mono text-slate-500 tabular-nums">
+                            السنة {item.grade}
+                          </span>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {/* TAB 6: Integrated Curriculum French Lessons Grouped by Trimester */}

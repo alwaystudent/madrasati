@@ -241,6 +241,28 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidFavoriteWord(data, studentId) {
+      return data.keys().hasAll([
+          'ownerId', 'studentId', 'word', 'article',
+          'arMeaning', 'letter', 'grade', 'savedAtIso', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'studentId', 'word', 'article',
+          'arMeaning', 'letter', 'grade', 'savedAtIso', 'createdAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isValidStudentDocId(data.studentId)
+        && data.studentId == studentId
+        && data.word is string && data.word.size() >= 1 && data.word.size() <= 60
+        && data.article is string && data.article.size() <= 20
+        && data.arMeaning is string && data.arMeaning.size() >= 1 && data.arMeaning.size() <= 120
+        && data.letter is string && data.letter.size() >= 1 && data.letter.size() <= 2
+        && isValidGrade(data.grade)
+        && data.savedAtIso is string && data.savedAtIso.size() <= 40
+        && data.createdAt is timestamp;
+    }
+
     // Collection: /users/{userId}
     match /users/{userId} {
       allow get: if isOwner(userId) && isEmailVerified() && isValidId(userId);
@@ -391,6 +413,32 @@ service cloud.firestore {
             && isValidId(userId)
             && isValidStudentDocId(studentId)
             && isValidId(reportId)
+            && existing().ownerId == request.auth.uid;
+        }
+
+        // Subcollection: /users/{userId}/students/{studentId}/favoriteWords/{wordId}
+        match /favoriteWords/{wordId} {
+          allow get: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(wordId);
+          allow list: if isSignedIn() && isEmailVerified() && existing().ownerId == request.auth.uid;
+          allow create: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(wordId)
+            && isValidFavoriteWord(incoming(), studentId)
+            && incoming().createdAt == request.time
+            && exists(/databases/$(database)/documents/users/$(userId)/students/$(studentId))
+            && get(/databases/$(database)/documents/users/$(userId)/students/$(studentId)).data.ownerId == request.auth.uid;
+          allow update: if false;
+          allow delete: if isOwner(userId)
+            && isEmailVerified()
+            && isValidId(userId)
+            && isValidStudentDocId(studentId)
+            && isValidId(wordId)
             && existing().ownerId == request.auth.uid;
         }
       }

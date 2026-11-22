@@ -17,6 +17,7 @@ import { ExerciseEngine } from './ExerciseEngine';
 import { LessonTutorChat } from './LessonTutorChat';
 import { FrenchSpeakableText } from './FrenchSpeakableText';
 import { FrenchWordGlossaryCorner } from './FrenchWordGlossaryCorner';
+import { FrenchGlossaryEntry } from '../utils/frenchGlossary';
 import { SpeechSpeed } from '../utils/frenchSpeech';
 import { speakArabicText } from '../utils/arabicSpeech';
 
@@ -24,6 +25,10 @@ interface LessonWorkspaceProps {
   lesson: Lesson;
   studentName?: string;
   completedStepIndices: number[];
+  favoriteWordKeys?: Set<string>;
+  favoriteCount?: number;
+  onToggleFavoriteWord?: (entry: FrenchGlossaryEntry) => void;
+  onOpenFavoritesInStudio?: () => void;
   onStepComplete: (lessonId: string, stepIndex: number) => void;
   onLessonComplete: (score: number, total: number, pointsEarned: number) => void;
   onExit: () => void;
@@ -33,6 +38,10 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
   lesson,
   studentName = 'عزيز',
   completedStepIndices,
+  favoriteWordKeys,
+  favoriteCount = 0,
+  onToggleFavoriteWord,
+  onOpenFavoritesInStudio,
   onStepComplete,
   onLessonComplete,
   onExit,
@@ -235,6 +244,10 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
                           selectedGrade={lesson.grade}
                           trimester={lesson.trimester}
                           speed={speechSpeed}
+                          favoriteWordKeys={favoriteWordKeys}
+                          favoriteCount={favoriteCount}
+                          onToggleFavoriteWord={onToggleFavoriteWord}
+                          onOpenFavoritesReview={onOpenFavoritesInStudio}
                         />
                       </div>
                     )}

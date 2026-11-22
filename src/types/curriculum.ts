@@ -338,3 +338,12 @@ export interface ParentFollowUpPreferences {
   lastDigestGeneratedIso: string;
 }
 
+export interface FavoriteFrenchWord {
+  id: string;
+  word: string;
+  article?: string;
+  arMeaning: string;
+  letter: string;
+  grade: GradeLevel;
+  savedAtIso: string;
+}

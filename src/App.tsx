@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Menu, Timer, Wifi, WifiOff } from 'lucide-react';
 import { SidebarNav, AppView } from './components/SidebarNav';
@@ -8,7 +8,7 @@ import { LearningPathwayHome } from './components/LearningPathwayHome';
 import { SubjectBrowser } from './components/SubjectBrowser';
 import { LessonWorkspace } from './components/LessonWorkspace';
 import { VisualMediaStudio } from './components/VisualMediaStudio';
-import { FrenchTrainingStudio } from './components/FrenchTrainingStudio';
+import { FrenchTrainingStudio, FrenchStudioTab } from './components/FrenchTrainingStudio';
 import { PracticeBankView } from './components/PracticeBankView';
 import { ExpressChallenge } from './components/ExpressChallenge';
 import { LeaderboardView } from './components/LeaderboardView';
@@ -30,6 +30,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [portalLegalTab, setPortalLegalTab] = useState<'privacy' | 'terms' | null>(null);
   const [legalInitialTab, setLegalInitialTab] = useState<'privacy' | 'terms'>('privacy');
+  const [frenchStudioInitialTab, setFrenchStudioInitialTab] = useState<FrenchStudioTab>('vocab');
   const [showSplash, setShowSplash] = useState(true);
   const handleSplashComplete = useCallback(() => setShowSplash(false), []);
   const shouldReduceMotion = useReducedMotion();
@@ -83,7 +84,15 @@ export default function App() {
     parentPrefs,
     saveParentPrefs,
     clearParentPrefs,
+    favoriteWords,
+    toggleFavoriteWord,
+    removeFavoriteWord,
   } = useStudentProgress();
+
+  const favoriteWordKeys = useMemo(
+    () => new Set(favoriteWords.map((w) => w.word.trim().toLowerCase())),
+    [favoriteWords]
+  );
 
   const activeGradeMeta =
     GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[3];
@@ -100,6 +109,11 @@ export default function App() {
       setActiveLesson(null);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openFrenchStudio = (tab: FrenchStudioTab = 'vocab') => {
+    setFrenchStudioInitialTab(tab);
+    handleNavigate('french_studio');
   };
 
   const viewTitleMap: Record<AppView, string> = {
@@ -186,6 +200,7 @@ export default function App() {
         onFlushSyncNow={flushCloudSyncNow}
         onSignInWithGoogle={signInWithGoogle}
         onChangeStudent={() => reopenOnboarding()}
+        favoriteWordsCount={favoriteWords.length}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
       />
@@ -286,7 +301,9 @@ export default function App() {
                 onSelectLesson={handleSelectLesson}
                 onOpenPractice={() => handleNavigate('practice')}
                 onOpenProgress={() => handleNavigate('progress')}
-                onOpenFrenchStudio={() => handleNavigate('french_studio')}
+                onOpenFrenchStudio={() => openFrenchStudio('vocab')}
+                onOpenFrenchFavorites={() => openFrenchStudio('favorites')}
+                favoriteWordsCount={favoriteWords.length}
                 onOpenVisualStudio={() => handleNavigate('visual_studio')}
                 onOpenReports={() => handleNavigate('reports')}
                 onOpenParentFollowUp={() => handleNavigate('parent_followup')}
@@ -298,6 +315,8 @@ export default function App() {
                 progress={progress}
                 studentLessons={studentLessons}
                 onSelectLesson={handleSelectLesson}
+                onOpenFrenchStudio={() => openFrenchStudio('vocab')}
+                favoriteWordsCount={favoriteWords.length}
               />
             )}
 
@@ -333,7 +352,12 @@ export default function App() {
                 selectedGrade={progress.selectedGrade}
                 studentName={progress.studentName}
                 frenchLessons={studentLessons.filter((l) => l.subjectId === 'french')}
+                favoriteWords={favoriteWords}
+                isCloudSynced={Boolean(authUser && authUser.emailVerified && activeStudentId)}
+                initialTab={frenchStudioInitialTab}
                 onSelectLesson={handleSelectLesson}
+                onToggleFavoriteWord={toggleFavoriteWord}
+                onRemoveFavoriteWord={removeFavoriteWord}
                 onRecordFrenchTraining={(title, score, total, points) =>
                   recordLessonResult(
                     `french-studio-g${progress.selectedGrade}`,
@@ -373,6 +397,10 @@ export default function App() {
                 lesson={activeLesson}
                 studentName={progress.studentName}
                 completedStepIndices={progress.completedSteps[activeLesson.id] || []}
+                favoriteWordKeys={favoriteWordKeys}
+                favoriteCount={favoriteWords.length}
+                onToggleFavoriteWord={toggleFavoriteWord}
+                onOpenFavoritesInStudio={() => openFrenchStudio('favorites')}
                 onStepComplete={markStepCompleted}
                 onLessonComplete={(score, total, points) =>
                   recordLessonResult(

@@ -50,6 +50,7 @@ interface SidebarNavProps {
   onFlushSyncNow?: () => Promise<void>;
   onSignInWithGoogle: () => Promise<void>;
   onChangeStudent: () => void;
+  favoriteWordsCount?: number;
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }
@@ -66,6 +67,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   onFlushSyncNow,
   onSignInWithGoogle,
   onChangeStudent,
+  favoriteWordsCount = 0,
   mobileOpen,
   onCloseMobile,
 }) => {
@@ -258,14 +260,28 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => handleSelect(item.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   isActive
                     ? 'bg-sky-500 text-white shadow-xs'
                     : 'text-slate-700 hover:bg-sky-50 hover:text-sky-900'
                 }`}
               >
-                {item.icon}
-                <span>{item.label}</span>
+                <span className="flex items-center gap-3 min-w-0">
+                  {item.icon}
+                  <span>{item.label}</span>
+                </span>
+                {item.id === 'french_studio' && favoriteWordsCount > 0 && (
+                  <span
+                    className={`text-[11px] font-mono font-bold tabular-nums px-1.5 py-0.5 rounded-md ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                    title="كلماتي المفضلة"
+                  >
+                    ★ {favoriteWordsCount}
+                  </span>
+                )}
               </button>
             );
           })}

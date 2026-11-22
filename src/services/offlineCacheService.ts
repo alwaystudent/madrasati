@@ -24,6 +24,7 @@ export const CORE_SHELL_URLS: string[] = [
 ];
 
 export const CORE_LESSON_IMAGE_URLS: string[] = [
+  '/src/assets/images/french_academy_studio_1795338030698.jpg',
   '/src/assets/images/hero_djerba_academy_1795260007139.jpg',
   '/src/assets/images/hero_djerba_palm_1795261535045.jpg',
   '/src/assets/images/hero_tunisian_learning_1795189781389.jpg',

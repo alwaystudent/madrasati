@@ -14,7 +14,9 @@ import {
   Play,
   ShieldCheck,
   Sparkles,
+  Star,
   Target,
+  Volume2,
 } from 'lucide-react';
 import { BADGES, GRADES, SUBJECTS, TRIMESTERS } from '../data/tunisianCurriculum';
 import {
@@ -48,6 +50,8 @@ interface LearningPathwayHomeProps {
   onOpenPractice: () => void;
   onOpenProgress: () => void;
   onOpenFrenchStudio?: () => void;
+  onOpenFrenchFavorites?: () => void;
+  favoriteWordsCount?: number;
   onOpenVisualStudio?: () => void;
   onOpenReports?: () => void;
   onOpenParentFollowUp?: () => void;
@@ -70,6 +74,8 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
   onOpenPractice,
   onOpenProgress,
   onOpenFrenchStudio,
+  onOpenFrenchFavorites,
+  favoriteWordsCount = 0,
   onOpenVisualStudio,
   onOpenReports,
   onOpenParentFollowUp,
@@ -288,6 +294,93 @@ export const LearningPathwayHome: React.FC<LearningPathwayHomeProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Prominent Exciting French Academy Spotlight */}
+      {onOpenFrenchStudio && (
+        <section
+          aria-label="أكاديمية اللغة الفرنسية التفاعلية"
+          className="relative overflow-hidden bg-gradient-to-l from-indigo-50 via-white to-amber-50/80 border-2 border-indigo-200 rounded-3xl p-5 sm:p-6 shadow-xs"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div className="lg:col-span-8 space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm font-bold text-indigo-700">
+                <span className="inline-flex items-center gap-1.5">
+                  <Languages className="w-4 h-4 text-indigo-600" aria-hidden="true" />
+                  <span dir="ltr">Bonjour !</span>
+                  <span>أكاديمية اللغة الفرنسية التفاعلية · {gradeMeta.shortLabel}</span>
+                </span>
+              </div>
+
+              <h2 className="text-xl sm:text-2xl font-display font-bold text-slate-900 leading-snug text-balance">
+                اكتشف سحر الفرنسية: استمع، انطق، واحفظ كلماتك المفضّلة!
+              </h2>
+
+              <p className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed max-w-2xl">
+                معجم صوتي تفاعلي، أنشطة استماع وقراءة، فهرس الكلمات المرتّب هجائياً (A → Z)،
+                وركن خاص لحفظ ومراجعة كلماتك المختارة في أي وقت.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-600">
+                <span className="inline-flex items-center gap-1.5 text-indigo-800">
+                  <Volume2 className="w-3.5 h-3.5 text-indigo-600" aria-hidden="true" />
+                  نطق عادي وبطيء للمبتدئين
+                </span>
+                <span aria-hidden="true" className="text-slate-300">
+                  ·
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-amber-800">
+                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" aria-hidden="true" />
+                  <span className="font-mono tabular-nums">{favoriteWordsCount}</span> كلمة في مفضّلتك
+                </span>
+              </div>
+
+              <div className="pt-1 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onOpenFrenchStudio}
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3 text-sm sm:text-base font-display font-bold text-white bg-gradient-to-l from-indigo-600 via-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <Sparkles className="w-5 h-5 text-amber-200 shrink-0" aria-hidden="true" />
+                  <span>انطلق إلى أكاديمية الفرنسية</span>
+                  <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
+                </button>
+
+                {onOpenFrenchFavorites && (
+                  <button
+                    type="button"
+                    onClick={onOpenFrenchFavorites}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-bold text-amber-900 bg-amber-100/80 hover:bg-amber-200/80 border border-amber-300 rounded-2xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  >
+                    <Star
+                      className="w-4 h-4 text-amber-600 fill-amber-500 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span>كلماتي المفضلة ({favoriteWordsCount})</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="lg:col-span-4">
+              <button
+                type="button"
+                onClick={onOpenFrenchStudio}
+                aria-label="دخول إلى أكاديمية اللغة الفرنسية"
+                className="group w-full block rounded-2xl bg-indigo-100 border-2 border-indigo-200 overflow-hidden shadow-xs hover:border-indigo-400 transition-all cursor-pointer"
+              >
+                <div className="aspect-[4/3] w-full overflow-hidden">
+                  <img
+                    src="/src/assets/images/french_academy_studio_1795338030698.jpg"
+                    alt="صديق الدراسة فنك يقرأ كتاب الفرنسية بسماعات الصوت"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                  />
+                </div>
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Featured Visual Content Studio Card */}
       {onOpenVisualStudio && (

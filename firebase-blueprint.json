@@ -503,6 +503,65 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "FavoriteFrenchWord": {
+      "title": "FavoriteFrenchWord",
+      "description": "Student-saved favorite French vocabulary word from the alphabetical glossary for review in the French Academy.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "word": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "article": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "arMeaning": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "letter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2
+        },
+        "grade": {
+          "type": "integer",
+          "enum": [3, 4, 5, 6]
+        },
+        "savedAtIso": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "studentId",
+        "word",
+        "article",
+        "arMeaning",
+        "letter",
+        "grade",
+        "savedAtIso",
+        "createdAt"
+      ]
     }
   },
   "firestore": {
@@ -525,6 +584,10 @@
     "/users/{userId}/students/{studentId}/progressReports/{reportId}": {
       "schema": { "$ref": "#/entities/ProgressReport" },
       "description": "Saved point-in-time pedagogical progress reports for parent/teacher follow-up."
+    },
+    "/users/{userId}/students/{studentId}/favoriteWords/{wordId}": {
+      "schema": { "$ref": "#/entities/FavoriteFrenchWord" },
+      "description": "Student-saved favorite French words from the glossary for later review in the French Academy."
     },
     "/leaderboard/{entryId}": {
       "schema": { "$ref": "#/entities/LeaderboardEntry" },

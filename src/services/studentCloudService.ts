@@ -15,6 +15,7 @@ import {
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import {
   ActivityEntry,
+  FavoriteFrenchWord,
   GradeLevel,
   LeaderboardEntry,
   LessonCompletion,
@@ -39,6 +40,7 @@ const activitiesCache = new Map<string, CacheBucket<ActivityEntry[]>>();
 const reportsCache = new Map<string, CacheBucket<SavedProgressReport[]>>();
 const leaderboardCache = new Map<GradeLevel, CacheBucket<LeaderboardEntry[]>>();
 const peerChallengesCache = new Map<string, CacheBucket<PeerChallengeRecord[]>>();
+const favoriteWordsCache = new Map<string, CacheBucket<FavoriteFrenchWord[]>>();
 
 const isFresh = (fetchedAt: number) => Date.now() - fetchedAt < CACHE_TTL_MS;
 
@@ -48,12 +50,14 @@ export function clearAllCloudCaches() {
   reportsCache.clear();
   leaderboardCache.clear();
   peerChallengesCache.clear();
+  favoriteWordsCache.clear();
 }
 
 export function invalidateStudentSubCaches(uid: string, studentId: string) {
   studentsCache.delete(uid);
   activitiesCache.delete(`${uid}:${studentId}`);
   reportsCache.delete(`${uid}:${studentId}`);
+  favoriteWordsCache.delete(`${uid}:${studentId}`);
 }
 
 const clampInt = (val: number, min: number, max: number): number => {
@@ -251,6 +255,15 @@ export async function deleteStudentProfileInCloud(
       )
     );
     await Promise.all(repSnap.docs.map((d) => deleteDoc(d.ref)));
+
+    const favSnap = await getDocs(
+      query(
+        collection(db, 'users', uid, 'students', studentId, 'favoriteWords'),
+        where('ownerId', '==', uid),
+        limit(250)
+      )
+    );
+    await Promise.all(favSnap.docs.map((d) => deleteDoc(d.ref)));
 
     // Best-effort cleanup of public grade leaderboard entry for this student
     try {
@@ -841,3 +854,117 @@ export async function deleteParentPreferencesInCloud(uid: string): Promise<void>
   }
 }
 
+export function toSafeFavoriteWordId(word: string): string {
+  const normalized = word.trim().toLowerCase();
+  const asciiSlug = normalized
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/œ/g, 'oe')
+    .replace(/æ/g, 'ae')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 32);
+
+  let hash = 2166136261;
+  for (let i = 0; i < normalized.length; i++) {
+    hash ^= normalized.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const hex = (hash >>> 0).toString(16).padStart(8, '0');
+  return `w_${asciiSlug || 'mot'}_${hex}`.slice(0, 64);
+}
+
+export async function fetchFavoriteWordsOnce(
+  uid: string,
+  studentId: string,
+  forceRefresh = false
+): Promise<FavoriteFrenchWord[]> {
+  const cacheKey = `${uid}:${studentId}`;
+  const cached = favoriteWordsCache.get(cacheKey);
+  if (!forceRefresh && cached && isFresh(cached.fetchedAt)) {
+    return cached.data;
+  }
+  const path = `users/${uid}/students/${studentId}/favoriteWords`;
+  try {
+    const q = query(
+      collection(db, 'users', uid, 'students', studentId, 'favoriteWords'),
+      where('ownerId', '==', uid),
+      limit(250)
+    );
+    const snapshot = await getDocs(q);
+    const items: FavoriteFrenchWord[] = snapshot.docs.map((d) => {
+      const data = d.data();
+      const word = safeString(typeof data.word === 'string' ? data.word : '', 60, 'mot');
+      const letter = safeString(typeof data.letter === 'string' ? data.letter : '', 2, word.charAt(0).toUpperCase() || 'A');
+      return {
+        id: d.id,
+        word,
+        article: safeString(typeof data.article === 'string' ? data.article : '', 20) || undefined,
+        arMeaning: safeString(typeof data.arMeaning === 'string' ? data.arMeaning : '', 120, 'كلمة'),
+        letter,
+        grade: safeGrade(Number(data.grade)),
+        savedAtIso: safeString(typeof data.savedAtIso === 'string' ? data.savedAtIso : '', 40, new Date().toISOString()),
+      };
+    });
+    items.sort((a, b) => a.word.localeCompare(b.word, 'fr', { sensitivity: 'base' }));
+    favoriteWordsCache.set(cacheKey, { data: items, fetchedAt: Date.now() });
+    return items;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+export async function saveFavoriteWordToCloud(
+  uid: string,
+  studentId: string,
+  entry: FavoriteFrenchWord
+): Promise<FavoriteFrenchWord> {
+  const wordId = toSafeFavoriteWordId(entry.word);
+  const path = `users/${uid}/students/${studentId}/favoriteWords/${wordId}`;
+  const cleanWord = safeString(entry.word, 60, 'mot');
+  const cleanArticle = safeString(entry.article, 20, '');
+  const cleanMeaning = safeString(entry.arMeaning, 120, 'كلمة');
+  const cleanLetter = safeString(entry.letter, 2, cleanWord.charAt(0).toUpperCase() || 'A');
+  const cleanGrade = safeGrade(Number(entry.grade));
+  const cleanSavedAt = safeString(entry.savedAtIso, 40, new Date().toISOString());
+
+  try {
+    await setDoc(doc(db, 'users', uid, 'students', studentId, 'favoriteWords', wordId), {
+      ownerId: uid,
+      studentId,
+      word: cleanWord,
+      article: cleanArticle,
+      arMeaning: cleanMeaning,
+      letter: cleanLetter,
+      grade: cleanGrade,
+      savedAtIso: cleanSavedAt,
+      createdAt: serverTimestamp(),
+    });
+    favoriteWordsCache.delete(`${uid}:${studentId}`);
+    return {
+      id: wordId,
+      word: cleanWord,
+      article: cleanArticle || undefined,
+      arMeaning: cleanMeaning,
+      letter: cleanLetter,
+      grade: cleanGrade,
+      savedAtIso: cleanSavedAt,
+    };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export async function removeFavoriteWordInCloud(
+  uid: string,
+  studentId: string,
+  wordId: string
+): Promise<void> {
+  const path = `users/${uid}/students/${studentId}/favoriteWords/${wordId}`;
+  try {
+    await deleteDoc(doc(db, 'users', uid, 'students', studentId, 'favoriteWords', wordId));
+    favoriteWordsCache.delete(`${uid}:${studentId}`);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}

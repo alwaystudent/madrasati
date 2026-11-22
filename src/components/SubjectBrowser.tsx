@@ -9,6 +9,8 @@ import {
   Landmark,
   HeartHandshake,
   Search,
+  Sparkles,
+  ArrowLeft,
 } from 'lucide-react';
 import { GRADES, SUBJECTS, TRIMESTERS } from '../data/tunisianCurriculum';
 import { Lesson, StudentProgress, SubjectId } from '../types/curriculum';
@@ -17,6 +19,8 @@ interface SubjectBrowserProps {
   progress: StudentProgress;
   studentLessons: Lesson[];
   onSelectLesson: (lesson: Lesson) => void;
+  onOpenFrenchStudio?: () => void;
+  favoriteWordsCount?: number;
   initialSubject?: SubjectId | 'all';
 }
 
@@ -24,6 +28,8 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
   progress,
   studentLessons,
   onSelectLesson,
+  onOpenFrenchStudio,
+  favoriteWordsCount = 0,
   initialSubject = 'all',
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<SubjectId | 'all'>(initialSubject);
@@ -154,6 +160,33 @@ export const SubjectBrowser: React.FC<SubjectBrowserProps> = ({
             </select>
           </div>
         </div>
+
+        {onOpenFrenchStudio && (selectedSubject === 'french' || selectedSubject === 'all') && (
+          <div className="p-4 rounded-2xl bg-gradient-to-l from-indigo-50 via-white to-sky-50 border border-indigo-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Languages className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-display font-bold text-indigo-950">
+                  أكاديمية اللغة الفرنسية · المعجم الصوتي وفهرس الكلمات
+                </div>
+                <p className="text-xs text-slate-600 truncate">
+                  تدرّب على النطق الفرنسي، واحفظ مفرداتك في «كلماتي المفضلة» ({favoriteWordsCount} كلمة محفوظة).
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenFrenchStudio}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-l from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 rounded-xl shadow-xs transition-all whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-200" aria-hidden="true" />
+              افتح أكاديمية الفرنسية
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </div>
 
       {filteredLessons.length === 0 ? (

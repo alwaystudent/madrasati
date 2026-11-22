@@ -3,7 +3,7 @@
 ## 1. Data Invariants
 1. **Default-Deny Net:** Any collection or document path not explicitly matched is denied for both read and write (`match /{document=**} { allow read, write: if false; }`).
 2. **Ownership & Verified Identity:** All read/write operations require an authenticated user (`request.auth != null`) with a verified email (`request.auth.token.email_verified == true`) matching `{userId}` and `ownerId`.
-3. **Master Gate Sync:** Subcollections (`/students/{studentId}`, `/activities/{activityId}`, `/progressReports/{reportId}`) cannot be created unless their parent document exists and is owned by `request.auth.uid`.
+3. **Master Gate Sync:** Subcollections (`/students/{studentId}`, `/activities/{activityId}`, `/progressReports/{reportId}`, `/favoriteWords/{wordId}`) cannot be created unless their parent document exists and is owned by `request.auth.uid`.
 4. **Immutable Ownership & Timestamps:** `ownerId`, `studentId`, and `createdAt` can never be mutated on update; `createdAt == request.time` on create and `updatedAt == request.time` on update.
 5. **Strict Schema & Bounds:** Every string enforces `.size()` bounds matching `firebase-blueprint.json`, every map enforces bounded key count, and `keys().hasAll(...) && keys().hasOnly(...)` blocks shadow fields.
 6. **Zero PII Exposure:** Neither emails nor phone numbers are stored in Firestore documents; all documents are private to the owner UID (`allow list` evaluates `resource.data.ownerId == request.auth.uid` without `get()`).

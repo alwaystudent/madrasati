@@ -17,6 +17,7 @@ import {
   deleteProgressReportInCloud,
   deleteStudentProfileInCloud,
   ensureUserAccount,
+  fetchFavoriteWordsOnce,
   fetchGradeLeaderboardOnce,
   fetchParentPreferencesOnce,
   fetchPeerChallengesOnce,
@@ -25,18 +26,23 @@ import {
   fetchUserStudentsOnce,
   generateSafeId,
   recordPeerChallengeToCloud,
+  removeFavoriteWordInCloud,
+  saveFavoriteWordToCloud,
   saveParentPreferencesToCloud,
   saveProgressReportToCloud,
   saveStudentActivityToCloud,
   setActiveStudentRef,
   syncStudentProgressToCloud,
+  toSafeFavoriteWordId,
   upsertLeaderboardEntry,
 } from '../services/studentCloudService';
 import { clearDriveAccessToken } from '../services/googleDriveService';
+import { FrenchGlossaryEntry } from '../utils/frenchGlossary';
 import {
   ActivityEntry,
   BadgeDefinition,
   CloudSyncStatus,
+  FavoriteFrenchWord,
   GradeLevel,
   LeaderboardEntry,
   LevelInfo,
@@ -53,6 +59,7 @@ const STORAGE_KEY = 'manarat_khamisa_progress_v3';
 const LOCAL_REPORTS_KEY = 'manarat_khamisa_local_reports_v1';
 const LOCAL_CHALLENGES_KEY = 'manarat_khamisa_local_challenges_v1';
 const LOCAL_PARENT_PREFS_KEY = 'aziz_academy_parent_prefs_v1';
+const LOCAL_FAVORITE_WORDS_KEY = 'aziz_academy_favorite_words_v1';
 const SYNC_DEBOUNCE_MS = 8500; // Batch rapid progress changes into 1 Firestore write
 const LEADERBOARD_REFRESH_COOLDOWN_MS = 15000;
 
@@ -379,11 +386,25 @@ export function useStudentProgress() {
     return createDefaultParentPrefs();
   });
 
+  const [localFavoriteWords, setLocalFavoriteWords] = useState<FavoriteFrenchWord[]>(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_FAVORITE_WORDS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as FavoriteFrenchWord[];
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [savedStudents, setSavedStudents] = useState<SavedStudentRecord[]>([]);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [cloudReports, setCloudReports] = useState<SavedProgressReport[]>([]);
+  const [cloudFavoriteWords, setCloudFavoriteWords] = useState<FavoriteFrenchWord[]>([]);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('local');
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [hasPendingSync, setHasPendingSync] = useState(false);
@@ -441,6 +462,19 @@ export function useStudentProgress() {
       // Ignore storage quota errors
     }
   }, [parentPrefs]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_FAVORITE_WORDS_KEY, JSON.stringify(localFavoriteWords));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [localFavoriteWords]);
+
+  const localFavoriteWordsRef = useRef(localFavoriteWords);
+  localFavoriteWordsRef.current = localFavoriteWords;
+  const cloudFavoriteWordsRef = useRef(cloudFavoriteWords);
+  cloudFavoriteWordsRef.current = cloudFavoriteWords;
 
   const flushCloudSyncNow = useCallback(async () => {
     if (syncTimerRef.current !== null) {
@@ -581,6 +615,7 @@ export function useStudentProgress() {
         setSavedStudents([]);
         setActiveStudentId(null);
         setCloudReports([]);
+        setCloudFavoriteWords([]);
         setLeaderboardEntries([]);
         setCloudChallenges([]);
         pendingProgressRef.current = null;
@@ -616,6 +651,12 @@ export function useStudentProgress() {
           for (const entry of initialLocal.activityLog.slice(0, 8)) {
             await saveStudentActivityToCloud(user.uid, newId, entry);
           }
+          const migratedFavs: FavoriteFrenchWord[] = [];
+          for (const fw of localFavoriteWordsRef.current.slice(0, 100)) {
+            const savedFw = await saveFavoriteWordToCloud(user.uid, newId, fw);
+            migratedFavs.push(savedFw);
+          }
+          setCloudFavoriteWords(migratedFavs);
           const createdRecord: SavedStudentRecord = {
             id: newId,
             studentName: initialLocal.studentName,
@@ -670,9 +711,10 @@ export function useStudentProgress() {
     let cancelled = false;
     const loadStudentSubCollections = async () => {
       try {
-        const [activities, reports] = await Promise.all([
+        const [activities, reports, favWords] = await Promise.all([
           fetchStudentActivitiesOnce(authUser.uid, activeStudentId),
           fetchProgressReportsOnce(authUser.uid, activeStudentId),
+          fetchFavoriteWordsOnce(authUser.uid, activeStudentId),
         ]);
         if (cancelled) return;
         setProgress((prev) => ({
@@ -680,6 +722,7 @@ export function useStudentProgress() {
           activityLog: activities,
         }));
         setCloudReports(reports);
+        setCloudFavoriteWords(favWords);
       } catch {
         // Non-fatal: keep existing local view if sub-fetch fails
       }
@@ -813,6 +856,7 @@ export function useStudentProgress() {
       setActiveStudentId(null);
       setSavedStudents([]);
       setCloudReports([]);
+      setCloudFavoriteWords([]);
       setLeaderboardEntries([]);
       setCloudChallenges([]);
       setCloudSyncStatus('local');
@@ -1405,6 +1449,99 @@ export function useStudentProgress() {
     }
   }, []);
 
+  const toggleFavoriteWord = useCallback(async (entry: FrenchGlossaryEntry): Promise<boolean> => {
+    const wordId = toSafeFavoriteWordId(entry.word);
+    const gradeVal: GradeLevel =
+      entry.grade === 3 || entry.grade === 4 || entry.grade === 5 || entry.grade === 6
+        ? entry.grade
+        : progressRef.current.selectedGrade;
+    const item: FavoriteFrenchWord = {
+      id: wordId,
+      word: entry.word.trim(),
+      article: entry.article?.trim() || undefined,
+      arMeaning: entry.arMeaning.trim(),
+      letter: entry.letter,
+      grade: gradeVal,
+      savedAtIso: new Date().toISOString(),
+    };
+
+    const user = authUserRef.current;
+    const sid = activeStudentIdRef.current;
+
+    if (user && user.emailVerified && sid) {
+      const exists = cloudFavoriteWordsRef.current.some(
+        (w) => w.id === wordId || w.word.toLowerCase() === item.word.toLowerCase()
+      );
+      if (exists) {
+        const existingItem = cloudFavoriteWordsRef.current.find(
+          (w) => w.id === wordId || w.word.toLowerCase() === item.word.toLowerCase()
+        );
+        const targetId = existingItem?.id ?? wordId;
+        setCloudFavoriteWords((prev) => prev.filter((w) => w.id !== targetId));
+        try {
+          await removeFavoriteWordInCloud(user.uid, sid, targetId);
+        } catch (err) {
+          if (existingItem) {
+            setCloudFavoriteWords((prev) => [...prev, existingItem]);
+          }
+          setCloudError(err instanceof Error ? err.message : 'تعذّر تحديث كلماتي المفضلة');
+        }
+        return false;
+      } else {
+        setCloudFavoriteWords((prev) =>
+          [...prev, item].sort((a, b) => a.word.localeCompare(b.word, 'fr', { sensitivity: 'base' }))
+        );
+        try {
+          const saved = await saveFavoriteWordToCloud(user.uid, sid, item);
+          setCloudFavoriteWords((prev) =>
+            prev
+              .map((w) => (w.id === wordId ? saved : w))
+              .sort((a, b) => a.word.localeCompare(b.word, 'fr', { sensitivity: 'base' }))
+          );
+        } catch (err) {
+          setCloudFavoriteWords((prev) => prev.filter((w) => w.id !== wordId));
+          setCloudError(err instanceof Error ? err.message : 'تعذّر حفظ الكلمة في السحابة');
+        }
+        return true;
+      }
+    }
+
+    let added = false;
+    setLocalFavoriteWords((prev) => {
+      const exists = prev.some(
+        (w) => w.id === wordId || w.word.toLowerCase() === item.word.toLowerCase()
+      );
+      if (exists) {
+        added = false;
+        return prev.filter(
+          (w) => w.id !== wordId && w.word.toLowerCase() !== item.word.toLowerCase()
+        );
+      }
+      added = true;
+      return [...prev, item].sort((a, b) =>
+        a.word.localeCompare(b.word, 'fr', { sensitivity: 'base' })
+      );
+    });
+    return added;
+  }, []);
+
+  const removeFavoriteWord = useCallback(async (wordId: string): Promise<void> => {
+    const user = authUserRef.current;
+    const sid = activeStudentIdRef.current;
+    if (user && user.emailVerified && sid) {
+      const prevSnapshot = cloudFavoriteWordsRef.current;
+      setCloudFavoriteWords((prev) => prev.filter((w) => w.id !== wordId));
+      try {
+        await removeFavoriteWordInCloud(user.uid, sid, wordId);
+      } catch (err) {
+        setCloudFavoriteWords(prevSnapshot);
+        setCloudError(err instanceof Error ? err.message : 'تعذّر حذف الكلمة المفضلة');
+      }
+      return;
+    }
+    setLocalFavoriteWords((prev) => prev.filter((w) => w.id !== wordId));
+  }, []);
+
   const restoreFromBackup = useCallback(
     (
       restoredProgress: StudentProgress,
@@ -1473,6 +1610,9 @@ export function useStudentProgress() {
   const peerChallenges =
     authUser && authUser.emailVerified && activeStudentId ? cloudChallenges : localChallenges;
 
+  const favoriteWords =
+    authUser && authUser.emailVerified && activeStudentId ? cloudFavoriteWords : localFavoriteWords;
+
   return {
     progress,
     studentLessons,
@@ -1490,6 +1630,7 @@ export function useStudentProgress() {
     savedStudents,
     activeStudentId,
     savedReports,
+    favoriteWords,
     cloudSyncStatus,
     cloudError,
     hasPendingSync,
@@ -1506,6 +1647,8 @@ export function useStudentProgress() {
     deleteSavedStudent,
     saveProgressReportSnapshot,
     removeProgressReportSnapshot,
+    toggleFavoriteWord,
+    removeFavoriteWord,
     completeOnboarding,
     reopenOnboarding,
     dismissRewardNotification,
