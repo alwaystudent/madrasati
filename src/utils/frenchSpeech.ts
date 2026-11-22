@@ -2,16 +2,75 @@ export type SpeechSpeed = 'normal' | 'slow';
 
 let currentUtterance: SpeechSynthesisUtterance | null = null;
 
+/**
+ * Normalizes French text for Web Speech API synthesis so elisions and typographic
+ * punctuation (e.g. `l'entraide`, `l’ entraide`, `d'abord`, `j'ai`, `c'est`)
+ * are pronounced smoothly in liaison without TTS reading out "apostrophe" or "slash".
+ */
+export function normalizeFrenchTextForSpeech(rawText: string): string {
+  if (!rawText) return '';
+
+  let text = rawText
+    // Normalize typographic apostrophes/primes to ASCII apostrophe
+    .replace(/[\u2018\u2019\u201B\u02BC\u2032`]/g, "'")
+    // Replace quotation marks and ellipses with natural pauses/spaces
+    .replace(/[«»“”"„]/g, ' ')
+    .replace(/…|\.{3,}/g, ', ')
+    // Replace underscores/fill-blanks with a short pause
+    .replace(/_+/g, ', ')
+    // Replace slashes (e.g. "un / une" or "le/la") with a comma pause
+    .replace(/\s*\/\s*/g, ', ');
+
+  // Remove accidental whitespace right after French elision prefixes + apostrophe
+  // e.g. "l’ entraide" -> "l'entraide"
+  text = text.replace(
+    /(^|[\s(\-—–,;:])(l|d|j|m|t|s|c|n|qu|jusqu|lorsqu|puisqu|presqu|quelqu)'\s+/gi,
+    "$1$2'"
+  );
+
+  // High-frequency contractions whose exact French pronunciation benefits from phonetic respelling
+  text = text
+    .replace(/\baujourd'hui\b/gi, 'aujourdhui')
+    .replace(/\bprud'hom/gi, 'prudhom')
+    .replace(/\bquelqu'une\b/gi, 'quelquune')
+    .replace(/\bquelqu'un\b/gi, 'quelqun')
+    .replace(/\bc'est\b/gi, 'sait')
+    .replace(/\bn'est\b/gi, 'nait')
+    .replace(/\bs'est\b/gi, 'sait')
+    .replace(/\bqu'est-ce\b/gi, 'quesse')
+    .replace(/\bqu'est\b/gi, 'quait')
+    .replace(/\bj'ai\b/gi, 'jé');
+
+  // Join remaining French elisions (l'entraide -> lentraide, l'école -> lécole, d'abord -> dabord, etc.)
+  text = text.replace(
+    /(^|[\s(\-—–,;:])(l|d|j|m|t|s|c|n|qu|jusqu|lorsqu|puisqu|presqu|quelqu)'([a-zA-ZÀ-ÿœæŒÆ])/gi,
+    '$1$2$3'
+  );
+
+  // Strip any leftover stray apostrophes between letters or isolated around words
+  // so no TTS engine ever speaks the word "apostrophe"
+  text = text
+    .replace(/([a-zA-ZÀ-ÿœæŒÆ])'([a-zA-ZÀ-ÿœæŒÆ])/g, '$1$2')
+    .replace(/'+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return text;
+}
+
 function pickFrenchVoice(): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
 
+  const frVoices = voices.filter((v) => v.lang.toLowerCase().startsWith('fr'));
+  if (!frVoices.length) return null;
+
   return (
-    voices.find((v) => v.lang.toLowerCase() === 'fr-fr') ??
-    voices.find((v) => v.lang.toLowerCase().startsWith('fr-')) ??
-    voices.find((v) => v.lang.toLowerCase().startsWith('fr')) ??
-    null
+    frVoices.find((v) => v.lang.toLowerCase() === 'fr-fr' && !v.localService) ??
+    frVoices.find((v) => v.lang.toLowerCase() === 'fr-fr') ??
+    frVoices.find((v) => v.lang.toLowerCase().startsWith('fr-')) ??
+    frVoices[0]
   );
 }
 
@@ -30,7 +89,7 @@ export function speakFrenchText(
     onEnd?: () => void;
   }
 ): void {
-  const clean = text.trim();
+  const clean = normalizeFrenchTextForSpeech(text);
   if (!clean) {
     options?.onEnd?.();
     return;
@@ -82,3 +141,4 @@ export function speakFrenchText(
     setTimeout(() => options?.onEnd?.(), 700);
   }
 }
+

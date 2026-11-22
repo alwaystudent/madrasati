@@ -5,8 +5,6 @@ import {
   Calendar,
   CheckCircle2,
   Ear,
-  Eye,
-  EyeOff,
   FileText,
   GraduationCap,
   Languages,
@@ -19,10 +17,11 @@ import {
   Volume2,
   XCircle,
 } from 'lucide-react';
-import { GRADES, TRIMESTERS } from '../data/tunisianCurriculum';
+import { TRIMESTERS } from '../data/tunisianCurriculum';
 import { FRENCH_TRAINING_PROGRAMS } from '../data/frenchTrainingData';
 import { FavoriteFrenchWord, GradeLevel, Lesson, TrimesterType } from '../types/curriculum';
 import { FrenchGlossaryEntry } from '../utils/frenchGlossary';
+import { formatTrimesterFr, getFrenchLessonDisplay } from '../utils/frenchLessonDisplay';
 import { speakFrenchText, SpeechSpeed } from '../utils/frenchSpeech';
 import { FrenchSpeakableText } from './FrenchSpeakableText';
 import { FrenchWordGlossaryCorner } from './FrenchWordGlossaryCorner';
@@ -62,7 +61,6 @@ function extractFrenchThemeLabel(theme: string): string {
 
 export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   selectedGrade,
-  studentName,
   frenchLessons = [],
   favoriteWords,
   isCloudSynced = false,
@@ -80,8 +78,6 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   // Favorite words review state
   const [favQuery, setFavQuery] = useState('');
   const [favSortMode, setFavSortMode] = useState<'alpha' | 'recent'>('alpha');
-  const [hideMeanings, setHideMeanings] = useState(false);
-  const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
   const [favQuizActive, setFavQuizActive] = useState(false);
   const [favQuizTarget, setFavQuizTarget] = useState<FavoriteFrenchWord | null>(null);
   const [favQuizOptions, setFavQuizOptions] = useState<FavoriteFrenchWord[]>([]);
@@ -105,7 +101,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
       (w) =>
         !q ||
         w.word.toLowerCase().includes(q) ||
-        w.arMeaning.toLowerCase().includes(q)
+        (w.article && w.article.toLowerCase().includes(q))
     );
     if (favSortMode === 'recent') {
       return [...list].sort((a, b) => b.savedAtIso.localeCompare(a.savedAtIso));
@@ -148,16 +144,15 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   const [readingSubmitted, setReadingSubmitted] = useState(false);
 
   const program = FRENCH_TRAINING_PROGRAMS[selectedGrade];
-  const gradeMeta = GRADES.find((g) => g.grade === selectedGrade) ?? GRADES[3];
 
   const trimesterVocab = program.vocabCards.filter(
     (c) => selectedTrimester === 'all' || !c.trimester || c.trimester === selectedTrimester
   );
-  const themes = Array.from(new Set(trimesterVocab.map((c) => c.theme)));
+  const themes = Array.from(new Set(trimesterVocab.map((c) => extractFrenchThemeLabel(c.theme))));
   const visibleVocab =
     selectedTheme === 'all'
       ? trimesterVocab
-      : trimesterVocab.filter((c) => c.theme === selectedTheme);
+      : trimesterVocab.filter((c) => extractFrenchThemeLabel(c.theme) === selectedTheme);
 
   const visibleListening = program.listeningItems.filter(
     (item) =>
@@ -224,7 +219,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
       const earned = listenScore * 20 + (listenScore === total ? 40 : 15);
       setListenFinished(true);
       onRecordFrenchTraining(
-        `تدريب الاستماع بالفرنسية (${gradeMeta.shortLabel})`,
+        `Écoute en français (${selectedGrade}e année)`,
         listenScore,
         total,
         earned
@@ -250,7 +245,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
     setReadingSubmitted(true);
     const points = score * 20 + 25;
     onRecordFrenchTraining(
-      `القراءة الجهرية: ${activePassage.titleFr}`,
+      `Lecture guidée : ${activePassage.titleFr}`,
       score,
       total,
       points
@@ -258,19 +253,23 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   };
 
   return (
-    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+    <section
+      dir="ltr"
+      lang="fr"
+      className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 text-left"
+    >
       {/* Header Banner */}
-      <div className="bg-gradient-to-l from-white via-white to-indigo-50/50 border-2 border-indigo-100 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
+      <div className="bg-gradient-to-r from-white via-white to-indigo-50/50 border-2 border-indigo-100 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-indigo-100">
           <div className="space-y-1.5">
             <div className="text-xs font-semibold text-indigo-700">
-              {program.levelBadge} · المنهاج الرسمي للجمهورية التونسية 2026
+              {program.levelBadge} · Programme officiel tunisien 2026
             </div>
             <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900">
-              أكاديمية اللغة الفرنسية الشاملة للعام الدراسي
+              Académie de langue française
             </h1>
             <p className="text-sm text-slate-600 leading-relaxed max-w-3xl">
-              {program.focusSummary} مرتبة حسب الثلاثيات بين المفردات والنصوص المسموعة والقواعد والتطبيقات التفاعلية.
+              {program.focusSummary}
             </p>
           </div>
 
@@ -285,7 +284,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                سرعة عادية (0.9×)
+                Vitesse normale (0.9×)
               </button>
               <button
                 type="button"
@@ -296,7 +295,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                نطق بطيء (0.68×)
+                Voix lente (0.68×)
               </button>
             </div>
           </div>
@@ -305,9 +304,9 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
         {/* Trimester Switcher Row */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5 p-1 bg-indigo-50/70 border border-indigo-100 rounded-xl">
-            <span className="inline-flex items-center gap-1 px-2 text-xs font-bold text-indigo-800">
+            <span className="inline-flex items-center gap-1.5 px-2 text-xs font-bold text-indigo-800">
               <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
-              الترتيب حسب الثلاثي:
+              Trimestre :
             </span>
             <button
               type="button"
@@ -318,7 +317,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                   : 'text-slate-700 hover:bg-white'
               }`}
             >
-              كامل العام الدراسي
+              Toute l’année
             </button>
             {TRIMESTERS.map((tri) => (
               <button
@@ -331,66 +330,67 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     : 'text-slate-700 hover:bg-white'
                 }`}
               >
-                {tri}
+                {formatTrimesterFr(tri)}
               </button>
             ))}
           </div>
         </div>
 
-        {/* 5 Skill Module Tabs */}
+        {/* 7 Skill Module Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 w-fit">
           <button
             type="button"
             onClick={() => setActiveTab('vocab')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'vocab'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <BookOpen className="w-4 h-4 text-indigo-600" aria-hidden="true" />
-            المعجم والنطق ({trimesterVocab.length})
+            Vocabulaire ({trimesterVocab.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('listening')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'listening'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Ear className="w-4 h-4 text-sky-600" aria-hidden="true" />
-            الاستماع والفهم ({visibleListening.length})
+            Écoute ({visibleListening.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('grammar')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'grammar'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <GraduationCap className="w-4 h-4 text-amber-600" aria-hidden="true" />
-            القواعد والتطبيقات ({visibleGrammar.length})
+            Grammaire ({visibleGrammar.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('reading')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'reading'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <FileText className="w-4 h-4 text-emerald-600" aria-hidden="true" />
-            نصوص القراءة والفهم ({visiblePassages.length})
+            Lecture ({visiblePassages.length})
           </button>
           <button
             type="button"
+            dir="rtl"
             onClick={() => setActiveTab('glossary')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'glossary'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -402,7 +402,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('favorites')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'favorites'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -414,19 +414,19 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               }`}
               aria-hidden="true"
             />
-            كلماتي المفضلة ({favoriteWords.length})
+            Mots favoris ({favoriteWords.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('lessons')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'lessons'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Languages className="w-4 h-4 text-teal-600" aria-hidden="true" />
-            دروس المنهج المدمجة ({visibleFrenchLessons.length})
+            Leçons ({visibleFrenchLessons.length})
           </button>
         </div>
       </div>
@@ -445,7 +445,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                جميع المحاور ({trimesterVocab.length})
+                Tous les thèmes ({trimesterVocab.length})
               </button>
               {themes.map((theme) => (
                 <button
@@ -458,7 +458,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {extractFrenchThemeLabel(theme)}
+                  {theme}
                 </button>
               ))}
             </div>
@@ -466,10 +466,12 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('glossary')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg cursor-pointer whitespace-nowrap"
             >
               <BookMarked className="w-3.5 h-3.5" aria-hidden="true" />
-              معاني الكلمات في فهرس الكلمات (A–Z)
+              <span>Traductions :</span>
+              <span dir="rtl">فهرس الكلمات</span>
+              <span>(A–Z)</span>
             </button>
           </div>
 
@@ -482,9 +484,9 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
                     <span className="font-semibold text-indigo-700">
-                      {card.trimester ? `${card.trimester}` : ''}
+                      {formatTrimesterFr(card.trimester)}
                     </span>
-                    <span dir="ltr" className="text-slate-500 font-medium">
+                    <span className="text-slate-500 font-medium">
                       {extractFrenchThemeLabel(card.theme)}
                     </span>
                   </div>
@@ -492,7 +494,6 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                   <div className="flex items-center justify-between gap-2">
                     <button
                       type="button"
-                      dir="ltr"
                       onClick={() =>
                         speakFrenchText(
                           card.article ? `${card.article.split('/')[0].trim()} ${card.frWord}` : card.frWord,
@@ -517,7 +518,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                           { speed }
                         )
                       }
-                      aria-label={`استمع لنطق ${card.frWord}`}
+                      aria-label={`Écouter ${card.frWord}`}
                       className="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer shrink-0"
                     >
                       <Volume2 className="w-4 h-4" aria-hidden="true" />
@@ -531,6 +532,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     speed={speed}
                     size="sm"
                     sentenceButtonLabel="Exemple"
+                    language="fr"
                   />
                 </div>
               </article>
@@ -549,14 +551,14 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               </div>
               <div className="space-y-1.5">
                 <h2 className="text-2xl font-display font-bold text-slate-900">
-                  أحسنت يا {studentName || 'عزيز'}! أتممت تدريب الاستماع
+                  Bravo ! Entraînement d’écoute terminé
                 </h2>
                 <p className="text-sm text-slate-600">
-                  حقّقت{' '}
+                  Score obtenu :{' '}
                   <strong className="font-mono text-slate-900 tabular-nums">
                     {listenScore} / {visibleListening.length}
                   </strong>{' '}
-                  في الفهم السماعي للغة الفرنسية.
+                  en compréhension orale.
                 </p>
               </div>
               <button
@@ -565,18 +567,18 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                أعد تدريب الاستماع
+                Recommencer l’écoute
               </button>
             </div>
           ) : currentListen ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-7 space-y-6">
               <div className="flex items-center justify-between text-xs text-slate-500 pb-3 border-b border-slate-100">
                 <span className="font-semibold text-indigo-700">
-                  تدريب الفهم السماعي · {gradeMeta.shortLabel}
-                  {currentListen.trimester ? ` · ${currentListen.trimester}` : ''}
+                  Compréhension orale · {selectedGrade}e année
+                  {currentListen.trimester ? ` · ${formatTrimesterFr(currentListen.trimester)}` : ''}
                 </span>
                 <span className="font-mono tabular-nums">
-                  التسجيل {listenIdx + 1} من {visibleListening.length}
+                  Audio {listenIdx + 1} / {visibleListening.length}
                 </span>
               </div>
 
@@ -591,10 +593,10 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                   </div>
                   <div className="space-y-0.5">
                     <div className="text-sm font-bold text-slate-900">
-                      اضغط للاستماع إلى الجملة الفرنسية
+                      Clique pour écouter la phrase en français
                     </div>
                     <div className="text-xs text-slate-600">
-                      يمكنك إعادة الاستماع بالسرعة البطيئة أو العادية قبل اختيار الإجابة.
+                      Tu peux réécouter en vitesse lente ou normale avant de choisir ta réponse.
                     </div>
                   </div>
                 </div>
@@ -608,7 +610,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <Volume2 className="w-4 h-4" aria-hidden="true" />
-                    {playingAudioId === currentListen.id ? 'جاري النطق...' : 'استمع الآن'}
+                    {playingAudioId === currentListen.id ? 'Lecture en cours...' : 'Écouter'}
                   </button>
                 </div>
               </div>
@@ -623,9 +625,8 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                       key={idx}
                       type="button"
                       disabled={listenSubmitted}
-                      dir={/[a-zA-ZÀ-ÿ]/.test(opt) && !/[\u0600-\u06FF]/.test(opt) ? 'ltr' : 'rtl'}
                       onClick={() => setListenSelected(idx)}
-                      className={`p-4 rounded-xl border text-sm sm:text-base font-medium transition-colors flex items-center justify-between gap-3 cursor-pointer ${
+                      className={`p-4 rounded-xl border text-left text-sm sm:text-base font-medium transition-colors flex items-center justify-between gap-3 cursor-pointer ${
                         right
                           ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-semibold'
                           : wrong
@@ -649,19 +650,20 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
 
               {listenSubmitted && (
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-sm">
-                  <div className="font-bold text-slate-900" dir="ltr">Texte audio :</div>
+                  <div className="font-bold text-slate-900">Texte audio :</div>
                   <FrenchSpeakableText
                     text={currentListen.audioFr}
                     speed={speed}
                     sentenceButtonLabel="Réécouter"
+                    language="fr"
                   />
-                  <div className="text-slate-700" dir="ltr">{currentListen.explanationAr}</div>
+                  <div className="text-slate-700">{currentListen.explanationAr}</div>
                 </div>
               )}
 
               <div className="flex items-center justify-between pt-2">
                 <span className="text-xs font-mono text-slate-500 tabular-nums">
-                  النتيجة: {listenScore} / {visibleListening.length}
+                  Score : {listenScore} / {visibleListening.length}
                 </span>
 
                 {!listenSubmitted ? (
@@ -671,7 +673,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     onClick={handleCheckListen}
                     className="px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 rounded-xl cursor-pointer"
                   >
-                    تحقّق من الإجابة
+                    Vérifier
                   </button>
                 ) : (
                   <button
@@ -680,8 +682,8 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     className="px-6 py-2.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl cursor-pointer"
                   >
                     {listenIdx + 1 < visibleListening.length
-                      ? 'التسجيل التالي'
-                      : 'إنهاء وجمع النقاط'}
+                      ? 'Audio suivant'
+                      : 'Terminer et enregistrer'}
                   </button>
                 )}
               </div>
@@ -696,10 +698,11 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
           <ExerciseEngine
             key={`french-grammar-${selectedGrade}-${selectedTrimester}`}
             exercises={visibleGrammar}
-            modeLabel={`قواعد الفرنسية وتطبيقاتها · ${gradeMeta.shortLabel}`}
+            language="fr"
+            modeLabel={`Grammaire et exercices · ${selectedGrade}e année`}
             onComplete={(score, total, points) =>
               onRecordFrenchTraining(
-                `ورشة القواعد والتطبيقات الفرنسية (${gradeMeta.shortLabel})`,
+                `Atelier de grammaire (${selectedGrade}e année)`,
                 score,
                 total,
                 points
@@ -709,7 +712,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
         </div>
       )}
 
-      {/* TAB 4: Expressive Guided Reading (French Only — No Arabic Text Translation) */}
+      {/* TAB 4: Expressive Guided Reading */}
       {activeTab === 'reading' && activePassage && (
         <div className="space-y-4">
           {visiblePassages.length > 1 && (
@@ -731,9 +734,9 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                         : 'bg-slate-50 text-slate-700 hover:bg-indigo-50'
                     }`}
                   >
-                    <span>{pass.trimester}</span>
+                    <span>{formatTrimesterFr(pass.trimester)}</span>
                     <span className="mx-1.5" aria-hidden="true">·</span>
-                    <span dir="ltr">{pass.titleFr}</span>
+                    <span>{pass.titleFr}</span>
                   </button>
                 );
               })}
@@ -745,9 +748,9 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
                 <div>
                   <div className="text-xs font-semibold text-indigo-700">
-                    {activePassage.trimester}
+                    {formatTrimesterFr(activePassage.trimester)}
                   </div>
-                  <h2 dir="ltr" className="text-xl font-bold text-slate-900 mt-0.5">
+                  <h2 className="text-xl font-bold text-slate-900 mt-0.5">
                     {activePassage.titleFr}
                   </h2>
                 </div>
@@ -761,10 +764,11 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer whitespace-nowrap"
                   >
                     <Volume2 className="w-4 h-4" aria-hidden="true" />
-                    اقرأ النص كاملاً
+                    Lire tout le texte
                   </button>
                   <button
                     type="button"
+                    dir="rtl"
                     onClick={() => setActiveTab('glossary')}
                     className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg cursor-pointer whitespace-nowrap"
                   >
@@ -775,7 +779,16 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               </div>
 
               <div className="text-xs text-indigo-700 font-medium">
-                اضغط على أي كلمة داخل الفقرة للاستماع إلى نطقها منفردة، أو استعن بفهرس الكلمات لمعرفة معنى كلمة:
+                Clique sur n’importe quel mot pour l’écouter, ou ouvre{' '}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('glossary')}
+                  className="underline font-bold cursor-pointer"
+                  dir="rtl"
+                >
+                  فهرس الكلمات
+                </button>{' '}
+                pour consulter sa traduction :
               </div>
 
               <div className="space-y-4 p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200">
@@ -786,6 +799,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     speed={speed}
                     size="lg"
                     sentenceButtonLabel={`Paragraphe ${idx + 1}`}
+                    language="fr"
                   />
                 ))}
               </div>
@@ -794,10 +808,10 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
             <aside className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
               <div className="pb-3 border-b border-slate-100">
                 <h3 className="text-lg font-display font-bold text-slate-900">
-                  أسئلة فهم المقروء
+                  Compréhension de l’écrit
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  أجب عن أسئلة النص لتثبيت الفهم وجمع نقاط التميّز في الفرنسية.
+                  Réponds aux questions ci-dessous pour valider ta compréhension du texte.
                 </p>
               </div>
 
@@ -822,7 +836,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                               onClick={() =>
                                 setReadingAnswers((prev) => ({ ...prev, [q.id]: optIdx }))
                               }
-                              className={`w-full p-3 rounded-xl border text-right text-xs sm:text-sm font-medium transition-colors cursor-pointer flex items-center justify-between gap-2 ${
+                              className={`w-full p-3 rounded-xl border text-left text-xs sm:text-sm font-medium transition-colors cursor-pointer flex items-center justify-between gap-2 ${
                                 isRight
                                   ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-semibold'
                                   : isWrong
@@ -862,7 +876,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                   onClick={handleCheckReading}
                   className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 rounded-xl cursor-pointer"
                 >
-                  تحقّق واجمع النقاط
+                  Vérifier et valider
                 </button>
               ) : (
                 <button
@@ -873,7 +887,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                   }}
                   className="w-full py-2.5 px-4 text-sm font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
                 >
-                  إعادة المحاولة
+                  Recommencer
                 </button>
               )}
             </aside>
@@ -881,20 +895,22 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
         </div>
       )}
 
-      {/* TAB 5: Word-Only Alphabetical Glossary (فهرس الكلمات) */}
+      {/* TAB 5: Word-Only Alphabetical Glossary (فهرس الكلمات — keeps Arabic translations) */}
       {activeTab === 'glossary' && (
-        <FrenchWordGlossaryCorner
-          selectedGrade={selectedGrade}
-          trimester={selectedTrimester}
-          speed={speed}
-          favoriteWordKeys={favoriteWordKeys}
-          favoriteCount={favoriteWords.length}
-          onToggleFavoriteWord={onToggleFavoriteWord}
-          onOpenFavoritesReview={() => setActiveTab('favorites')}
-        />
+        <div dir="rtl" className="text-right">
+          <FrenchWordGlossaryCorner
+            selectedGrade={selectedGrade}
+            trimester={selectedTrimester}
+            speed={speed}
+            favoriteWordKeys={favoriteWordKeys}
+            favoriteCount={favoriteWords.length}
+            onToggleFavoriteWord={onToggleFavoriteWord}
+            onOpenFavoritesReview={() => setActiveTab('favorites')}
+          />
+        </div>
       )}
 
-      {/* TAB 6: Student's Saved Favorite Words Review (كلماتي المفضلة) */}
+      {/* TAB 6: Student's Saved Favorite Words Review (French only; link to فهرس الكلمات for translations) */}
       {activeTab === 'favorites' && (
         <div className="bg-white border border-amber-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-amber-100">
@@ -904,18 +920,18 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                   <Star className="w-4 h-4 fill-amber-400 text-amber-500" aria-hidden="true" />
                 </div>
                 <h2 className="text-lg sm:text-xl font-display font-bold text-slate-900">
-                  كلماتي المفضلة — مراجعة {studentName || 'عزيز'}
+                  Mes mots favoris — Révision
                 </h2>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
                 <span>
-                  {favoriteWords.length} كلمة محفوظة للمراجعة
+                  {favoriteWords.length} {favoriteWords.length > 1 ? 'mots enregistrés' : 'mot enregistré'}
                 </span>
                 <span aria-hidden="true">·</span>
                 <span>
                   {isCloudSynced
-                    ? 'متزامنة مع حساب التلميذ السحابي'
-                    : 'محفوظة في حساب التلميذ على هذا الجهاز'}
+                    ? 'Synchronisé avec votre compte élève'
+                    : 'Enregistré sur cet appareil'}
                 </span>
               </div>
             </div>
@@ -939,29 +955,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                   }`}
                 >
                   <Ear className="w-3.5 h-3.5" aria-hidden="true" />
-                  {favQuizActive ? 'إغلاق تحدّي السمع' : 'تحدّي السمع لكلماتي'}
-                </button>
-              )}
-
-              {favoriteWords.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHideMeanings((v) => !v);
-                    setRevealedIds({});
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border transition-colors whitespace-nowrap cursor-pointer ${
-                    hideMeanings
-                      ? 'bg-amber-100 text-amber-950 border-amber-300'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {hideMeanings ? (
-                    <Eye className="w-3.5 h-3.5" aria-hidden="true" />
-                  ) : (
-                    <EyeOff className="w-3.5 h-3.5" aria-hidden="true" />
-                  )}
-                  {hideMeanings ? 'إظهار كل المعاني' : 'اختبر ذاكرتك (إخفاء المعاني)'}
+                  {favQuizActive ? 'Fermer le défi' : 'Défi d’écoute'}
                 </button>
               )}
 
@@ -971,7 +965,8 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl whitespace-nowrap cursor-pointer"
               >
                 <BookMarked className="w-3.5 h-3.5" aria-hidden="true" />
-                إضافة كلمات من الفهرس
+                <span>Ajouter / Traduire :</span>
+                <span dir="rtl">فهرس الكلمات</span>
               </button>
             </div>
           </div>
@@ -982,10 +977,13 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-display font-bold text-indigo-950">
-                    استمع إلى الكلمة واختر البطاقة الصحيحة
+                    Écoute le mot et choisis la bonne carte
                   </div>
                   <div className="text-xs text-slate-600">
-                    التقدّم: <span className="font-mono tabular-nums">{favQuizStats.correct} / {favQuizStats.total}</span>
+                    Progression :{' '}
+                    <span className="font-mono tabular-nums">
+                      {favQuizStats.correct} / {favQuizStats.total}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -998,14 +996,14 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                       { speed }
                     )
                   }
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer whitespace-nowrap"
                 >
                   <Volume2 className="w-4 h-4" aria-hidden="true" />
-                  استمع للكلمة مجدداً
+                  Réécouter le mot
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" dir="ltr">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {favQuizOptions.map((opt) => {
                   const isPicked = favQuizPickedId === opt.id;
                   const isTarget = opt.id === favQuizTarget.id;
@@ -1049,15 +1047,15 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                 <div className="flex items-center justify-between gap-3 pt-1">
                   <span className="text-xs font-semibold text-slate-700">
                     {favQuizPickedId === favQuizTarget.id
-                      ? 'Bravo ! إجابة صحيحة.'
-                      : `الكلمة الصحيحة: ${favQuizTarget.word}`}
+                      ? 'Bravo ! Bonne réponse.'
+                      : `Mot correct : ${favQuizTarget.word}`}
                   </span>
                   <button
                     type="button"
                     onClick={() => startNextFavoriteRound(favoriteWords)}
-                    className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl cursor-pointer"
+                    className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl cursor-pointer whitespace-nowrap"
                   >
-                    كلمة أخرى
+                    Mot suivant
                   </button>
                 </div>
               )}
@@ -1071,10 +1069,10 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               </div>
               <div className="space-y-1 max-w-md mx-auto">
                 <h3 className="text-base font-display font-bold text-slate-900">
-                  قائمة «كلماتي المفضلة» فارغة حالياً
+                  Ta liste de mots favoris est vide
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  افتح ركن «فهرس الكلمات» واضغط على أيقونة النجمة بجانب أي كلمة تودّ حفظها في حسابك لمراجعتها وتثبيتها هنا.
+                  Ouvre <span dir="rtl" className="font-bold">فهرس الكلمات</span> et clique sur l’étoile à côté de n’importe quel mot pour l’enregistrer et le réviser ici.
                 </p>
               </div>
               <button
@@ -1083,7 +1081,8 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors cursor-pointer"
               >
                 <BookMarked className="w-4 h-4" aria-hidden="true" />
-                تصفّح فهرس الكلمات لاختيار كلماتك
+                <span>Ouvrir</span>
+                <span dir="rtl">فهرس الكلمات</span>
               </button>
             </div>
           ) : (
@@ -1091,15 +1090,15 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="relative flex-1">
                   <Search
-                    className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
                     aria-hidden="true"
                   />
                   <input
                     type="search"
                     value={favQuery}
                     onChange={(e) => setFavQuery(e.target.value)}
-                    placeholder="ابحث داخل كلماتك المفضلة..."
-                    className="w-full pr-9 pl-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
+                    placeholder="Rechercher dans mes mots favoris..."
+                    className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:bg-white"
                   />
                 </div>
 
@@ -1113,7 +1112,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                         : 'text-slate-600'
                     }`}
                   >
-                    هجائياً (A → Z)
+                    Ordre A → Z
                   </button>
                   <button
                     type="button"
@@ -1124,102 +1123,91 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                         : 'text-slate-600'
                     }`}
                   >
-                    الأحدث حفظاً
+                    Plus récents
                   </button>
                 </div>
               </div>
 
               {visibleFavorites.length === 0 ? (
                 <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center text-sm text-slate-600">
-                  لا توجد كلمات محفوظة تطابق بحثك الحالي.
+                  Aucun mot favori ne correspond à cette recherche.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {visibleFavorites.map((item) => {
-                    const isMeaningVisible = !hideMeanings || Boolean(revealedIds[item.id]);
-                    return (
-                      <article
-                        key={item.id}
-                        className="p-4 rounded-xl bg-amber-50/40 border border-amber-200 hover:border-amber-300 flex flex-col justify-between gap-3 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2" dir="ltr">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-100 text-indigo-800 text-[11px] font-bold shrink-0">
-                              {item.letter}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                speakFrenchText(
-                                  item.article
-                                    ? `${item.article.split('/')[0].trim()} ${item.word}`
-                                    : item.word,
-                                  { speed }
-                                )
-                              }
-                              className="text-left text-base sm:text-lg font-bold text-slate-900 hover:text-indigo-700 truncate cursor-pointer"
-                            >
-                              {item.article && (
-                                <span className="text-indigo-600 font-semibold mr-1 text-xs">
-                                  {item.article}
-                                </span>
-                              )}
-                              {item.word}
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                speakFrenchText(
-                                  item.article
-                                    ? `${item.article.split('/')[0].trim()} ${item.word}`
-                                    : item.word,
-                                  { speed }
-                                )
-                              }
-                              aria-label={`استمع إلى ${item.word}`}
-                              className="p-1.5 rounded-lg bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 cursor-pointer"
-                            >
-                              <Volume2 className="w-3.5 h-3.5" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onRemoveFavoriteWord(item.id)}
-                              aria-label={`إزالة ${item.word} من كلماتي المفضلة`}
-                              title="إزالة من كلماتي المفضلة"
-                              className="p-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between gap-2">
-                          {isMeaningVisible ? (
-                            <div className="text-sm font-bold text-slate-900">
-                              {item.arMeaning}
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setRevealedIds((prev) => ({ ...prev, [item.id]: true }))
-                              }
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900 cursor-pointer"
-                            >
-                              <Eye className="w-3.5 h-3.5" aria-hidden="true" />
-                              إظهار المعنى
-                            </button>
-                          )}
-                          <span className="text-[11px] font-mono text-slate-500 tabular-nums">
-                            السنة {item.grade}
+                  {visibleFavorites.map((item) => (
+                    <article
+                      key={item.id}
+                      className="p-4 rounded-xl bg-amber-50/40 border border-amber-200 hover:border-amber-300 flex flex-col justify-between gap-3 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-100 text-indigo-800 text-[11px] font-bold shrink-0">
+                            {item.letter}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              speakFrenchText(
+                                item.article
+                                  ? `${item.article.split('/')[0].trim()} ${item.word}`
+                                  : item.word,
+                                { speed }
+                              )
+                            }
+                            className="text-left text-base sm:text-lg font-bold text-slate-900 hover:text-indigo-700 truncate cursor-pointer"
+                          >
+                            {item.article && (
+                              <span className="text-indigo-600 font-semibold mr-1 text-xs">
+                                {item.article}
+                              </span>
+                            )}
+                            {item.word}
+                          </button>
                         </div>
-                      </article>
-                    );
-                  })}
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              speakFrenchText(
+                                item.article
+                                  ? `${item.article.split('/')[0].trim()} ${item.word}`
+                                  : item.word,
+                                { speed }
+                              )
+                            }
+                            aria-label={`Écouter ${item.word}`}
+                            className="p-1.5 rounded-lg bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 cursor-pointer"
+                          >
+                            <Volume2 className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onRemoveFavoriteWord(item.id)}
+                            aria-label={`Retirer ${item.word} des favoris`}
+                            title="Retirer des favoris"
+                            className="p-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between gap-2 text-xs">
+                        <span className="font-mono text-slate-500 tabular-nums">
+                          {item.grade}e année
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('glossary')}
+                          className="inline-flex items-center gap-1 font-semibold text-indigo-700 hover:text-indigo-900 cursor-pointer"
+                        >
+                          <BookMarked className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span dir="rtl">فهرس الكلمات</span>
+                        </button>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               )}
             </>
@@ -1227,53 +1215,61 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
         </div>
       )}
 
-      {/* TAB 6: Integrated Curriculum French Lessons Grouped by Trimester */}
+      {/* TAB 7: Integrated Curriculum French Lessons Grouped by Trimester */}
       {activeTab === 'lessons' && (
         <div className="space-y-6">
           {TRIMESTERS.map((tri) => {
             const list = visibleFrenchLessons.filter((l) => l.trimester === tri);
             if (list.length === 0) return null;
+            const trimesterLabelFr = formatTrimesterFr(tri);
             return (
               <div key={tri} className="space-y-3">
                 <div className="flex items-center justify-between gap-2 pb-2 border-b border-indigo-100">
                   <h2 className="text-base sm:text-lg font-display font-bold text-indigo-950 flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-indigo-600" aria-hidden="true" />
-                    دروس وأنشطة الفرنسية — {tri}
+                    Leçons et activités — {trimesterLabelFr}
                   </h2>
                   <span className="text-xs font-mono text-indigo-700 font-bold tabular-nums">
-                    {list.length} دروس
+                    {list.length} {list.length > 1 ? 'leçons' : 'leçon'}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {list.map((lesson) => (
-                    <article
-                      key={lesson.id}
-                      className="bg-white border border-slate-200 hover:border-indigo-300 rounded-2xl p-5 flex flex-col justify-between space-y-4 transition-colors"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-                          <span className="font-semibold text-indigo-700">{lesson.trimester}</span>
-                          <span className="font-mono tabular-nums">{lesson.exercises.length} تمارين</span>
+                  {list.map((lesson) => {
+                    const { titleFr, subtitleFr } = getFrenchLessonDisplay(lesson);
+                    return (
+                      <article
+                        key={lesson.id}
+                        className="bg-white border border-slate-200 hover:border-indigo-300 rounded-2xl p-5 flex flex-col justify-between space-y-4 transition-colors"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+                            <span className="font-semibold text-indigo-700">
+                              {trimesterLabelFr}
+                            </span>
+                            <span className="font-mono tabular-nums">
+                              {lesson.exercises.length} exercices
+                            </span>
+                          </div>
+                          <h3 className="text-base font-display font-bold text-slate-900 leading-snug">
+                            {titleFr}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                            {subtitleFr}
+                          </p>
                         </div>
-                        <h3 className="text-base font-display font-bold text-slate-900 leading-snug">
-                          {lesson.title}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                          {lesson.subtitle}
-                        </p>
-                      </div>
-                      {onSelectLesson && (
-                        <button
-                          type="button"
-                          onClick={() => onSelectLesson(lesson)}
-                          className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-4 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors cursor-pointer"
-                        >
-                          <Play className="w-3.5 h-3.5" aria-hidden="true" />
-                          افتح الدرس والتطبيقات
-                        </button>
-                      )}
-                    </article>
-                  ))}
+                        {onSelectLesson && (
+                          <button
+                            type="button"
+                            onClick={() => onSelectLesson(lesson)}
+                            className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-4 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors cursor-pointer"
+                          >
+                            <Play className="w-3.5 h-3.5" aria-hidden="true" />
+                            Ouvrir la leçon et les exercices
+                          </button>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               </div>
             );

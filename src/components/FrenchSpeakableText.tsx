@@ -9,6 +9,7 @@ interface FrenchSpeakableTextProps {
   showSentenceButton?: boolean;
   sentenceButtonLabel?: string;
   size?: 'sm' | 'md' | 'lg';
+  language?: 'ar' | 'fr';
 }
 
 export const FrenchSpeakableText: React.FC<FrenchSpeakableTextProps> = ({
@@ -18,6 +19,7 @@ export const FrenchSpeakableText: React.FC<FrenchSpeakableTextProps> = ({
   showSentenceButton = true,
   sentenceButtonLabel,
   size = 'md',
+  language = 'ar',
 }) => {
   const [activeTokenIdx, setActiveTokenIdx] = useState<number | null>(null);
   const [speakingWhole, setSpeakingWhole] = useState(false);
@@ -60,14 +62,16 @@ export const FrenchSpeakableText: React.FC<FrenchSpeakableTextProps> = ({
       ? 'text-sm leading-relaxed'
       : 'text-base leading-relaxed';
 
+  const isFr = language === 'fr';
+
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`} dir="ltr">
       {showSentenceButton && (
         <button
           type="button"
           onClick={handleSpeakSentence}
-          title="استمع للجملة كاملة"
-          aria-label={`استمع إلى: ${text}`}
+          title={isFr ? 'Écouter toute la phrase' : 'استمع للجملة كاملة'}
+          aria-label={isFr ? `Écouter : ${text}` : `استمع إلى: ${text}`}
           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors shrink-0 cursor-pointer ${
             speakingWhole
               ? 'bg-indigo-600 text-white border-indigo-600'
@@ -90,7 +94,7 @@ export const FrenchSpeakableText: React.FC<FrenchSpeakableTextProps> = ({
               key={idx}
               type="button"
               onClick={(e) => handleSpeakWord(e, seg, idx)}
-              title="اضغط لنطق هذه الكلمة"
+              title={isFr ? 'Cliquer pour écouter ce mot' : 'اضغط لنطق هذه الكلمة'}
               className={`inline rounded px-0.5 py-0.5 transition-colors cursor-pointer underline decoration-dotted underline-offset-4 ${
                 isWordActive
                   ? 'bg-indigo-600 text-white decoration-white'

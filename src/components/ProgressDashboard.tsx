@@ -29,6 +29,10 @@ import {
 } from '../types/curriculum';
 import { BadgeMedallion } from './BadgeMedallion';
 import { BadgeChestModal } from './BadgeChestModal';
+import {
+  SubjectMiniSparkline,
+  SubjectProgressCharts,
+} from './SubjectProgressCharts';
 
 interface ProgressDashboardProps {
   progress: StudentProgress;
@@ -74,6 +78,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
   const [gradeInput, setGradeInput] = useState<GradeLevel>(progress.selectedGrade);
   const [confirmReset, setConfirmReset] = useState(false);
   const [chestPreviewBadge, setChestPreviewBadge] = useState<BadgeDefinition | null>(null);
+  const [selectedChartSubject, setSelectedChartSubject] = useState<SubjectId>('math');
 
   const activeGradeMeta =
     GRADES.find((g) => g.grade === progress.selectedGrade) ?? GRADES[3];
@@ -295,12 +300,20 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
           {(['math', 'science', 'arabic', 'french', 'social'] as SubjectId[]).map((sid) => {
             const meta = SUBJECTS[sid];
             const stats = subjectStats(sid);
+            const isChartActive = selectedChartSubject === sid;
             return (
-              <div
+              <button
                 key={sid}
-                className="card-interactive bg-white border-2 border-slate-200/90 hover:border-sky-300 rounded-3xl p-5 space-y-4"
+                type="button"
+                onClick={() => setSelectedChartSubject(sid)}
+                aria-pressed={isChartActive}
+                className={`card-interactive text-right bg-white rounded-3xl p-5 space-y-3 cursor-pointer transition-all ${
+                  isChartActive
+                    ? `border-2 ${meta.accentBorder} ring-2 ring-sky-200 shadow-sm`
+                    : 'border-2 border-slate-200/90 hover:border-sky-300'
+                }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className={`text-base font-display font-bold ${meta.accentText}`}>
                       {meta.name}
@@ -314,23 +327,38 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                   </span>
                 </div>
 
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full ${meta.barColor} transition-all duration-300`}
                     style={{ width: `${stats.completionPercent}%` }}
                   />
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-600 font-mono tabular-nums">
+                <SubjectMiniSparkline
+                  subjectId={sid}
+                  progress={progress}
+                  studentLessons={studentLessons}
+                />
+
+                <div className="flex items-center justify-between text-xs text-slate-600 font-mono tabular-nums pt-1 border-t border-slate-100">
                   <span>
                     الدروس: {stats.completedLessons}/{stats.totalLessons}
                   </span>
-                  <span>دقة التمارين: {stats.accuracy > 0 ? `${stats.accuracy}%` : '—'}</span>
+                  <span>الدقة: {stats.accuracy > 0 ? `${stats.accuracy}%` : '—'}</span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
+
+        <SubjectProgressCharts
+          progress={progress}
+          studentLessons={studentLessons}
+          selectedSubject={selectedChartSubject}
+          onChangeSubject={setSelectedChartSubject}
+          subjectStats={subjectStats}
+          onSelectLesson={onSelectLesson}
+        />
       </div>
 
       {/* Badges Cabinet */}
