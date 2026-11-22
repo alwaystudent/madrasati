@@ -598,7 +598,7 @@ export const LESSONS_GRADE_6: Lesson[] = [
       },
       {
         title: 'التمييز بين sont و ont',
-        instruction: 'قارن بين Ils sont (هم يكونون) و Elles ont (هنّ يملكن).',
+        instruction: 'قارن بين صيغة Ils sont (فعل être) و صيغة Elles ont (فعل avoir).',
         takeaway: 'sont تأتي مع الصفات والأماكن (être)، و ont تأتي مع الملكية (avoir).',
       },
     ],
@@ -633,7 +633,7 @@ export const LESSONS_GRADE_6: Lesson[] = [
       {
         id: 'g6f-3',
         type: 'order',
-        prompt: 'رتّب الجملة الفرنسية (التلاميذ يتحدثون عن مشروعهم):',
+        prompt: 'رتّب الكلمات لتكوين جملة فرنسية سليمة:',
         tokens: ['projet.', 'leur', 'de', 'parlent', 'Les enfants'],
         correctOrder: ['Les enfants', 'parlent', 'de', 'leur', 'projet.'],
         hint: 'ابدأ بالفاعل (Les enfants) ثم الفعل المصرف (parlent).',
@@ -648,14 +648,14 @@ export const LESSONS_GRADE_6: Lesson[] = [
         afterBlank: ' rendez-vous à la bibliothèque.',
         choices: ['à', 'a', 'as', 'es'],
         correctChoice: 'a',
-        hint: 'هنا نحتاج إلى الفعل (يمتلك موعداً)، ويمكن استبداله بـ avait.',
+        hint: 'هنا نحتاج إلى فعل avoir المصرف، ويمكن استبداله بـ avait.',
         explanation: 'Parfait! Aziz a rendez-vous (فعل avoir).',
         ltr: true,
       },
       {
         id: 'g6f-5',
         type: 'choice',
-        prompt: 'اختر الجملة الصحيحة لتعبير عن المستقبل القريب (الذهاب للقيام بشيء):',
+        prompt: 'اختر الجملة الصحيحة للتعبير عن المستقبل القريب (Futur proche):',
         options: [
           'Demain, nous allons visiter le musée du Bardo.',
           'Demain, nous sommes visiter le musée du Bardo.',

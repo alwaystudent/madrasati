@@ -75,10 +75,20 @@ export default defineConfig(() => {
               handler: 'NetworkOnly',
             },
             {
+              urlPattern: ({url, sameOrigin}) =>
+                sameOrigin &&
+                (url.pathname.startsWith('/node_modules/') ||
+                  url.pathname.startsWith('/@vite/') ||
+                  url.pathname.startsWith('/@react-refresh') ||
+                  url.pathname.startsWith('/@fs/') ||
+                  /\.(ts|tsx|jsx|mjs)$/i.test(url.pathname)),
+              handler: 'NetworkOnly',
+            },
+            {
               urlPattern: /\/offline-lessons-snapshot\.json$/i,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'aziz-academy-core-lessons-v1',
+                cacheName: 'aziz-academy-core-lessons-v2',
                 expiration: {
                   maxEntries: 10,
                   maxAgeSeconds: 60 * 60 * 24 * 60,
@@ -87,15 +97,10 @@ export default defineConfig(() => {
             },
             {
               urlPattern: ({url, sameOrigin}) =>
-                sameOrigin &&
-                (url.pathname.startsWith('/assets/') ||
-                  url.pathname.startsWith('/src/data/') ||
-                  url.pathname.startsWith('/src/components/') ||
-                  url.pathname.startsWith('/src/services/') ||
-                  url.pathname.startsWith('/src/hooks/')),
+                sameOrigin && url.pathname.startsWith('/assets/'),
               handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'aziz-academy-lessons-cache',
+                cacheName: 'aziz-academy-lessons-v2',
                 cacheableResponse: {
                   statuses: [0, 200],
                 },
@@ -111,7 +116,7 @@ export default defineConfig(() => {
                 request.destination === 'image',
               handler: 'CacheFirst',
               options: {
-                cacheName: 'aziz-academy-media-cache',
+                cacheName: 'aziz-academy-media-v2',
                 cacheableResponse: {
                   statuses: [0, 200],
                 },
@@ -149,9 +154,7 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
-          type: 'module',
-          navigateFallback: 'index.html',
+          enabled: false,
         },
       }),
       // Copies src/assets into dist/ so root-relative URLs like
@@ -174,9 +177,13 @@ export default defineConfig(() => {
       },
     ],
     resolve: {
+      dedupe: ['react', 'react-dom'],
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'lucide-react', 'motion/react'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

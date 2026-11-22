@@ -124,12 +124,14 @@ export const FrenchArticlesLab: React.FC = () => {
           <span className={item.gender === 'm' ? 'text-sky-600' : 'text-rose-600'}>{article}</span>{' '}
           <span>{item.word}</span>
         </button>
-        <div className="text-sm text-slate-600">{item.arabic}</div>
+        <div className="text-sm font-medium text-indigo-700" dir="ltr">
+          {item.gender === 'm' ? 'Nom masculin (un / le)' : 'Nom féminin (une / la)'}
+        </div>
         <div className="pt-2 border-t border-slate-100 flex justify-center">
           <FrenchSpeakableText
             text={item.sentence}
             speed={speed}
-            sentenceButtonLabel="استمع للمثال"
+            sentenceButtonLabel="Écouter"
           />
         </div>
       </div>

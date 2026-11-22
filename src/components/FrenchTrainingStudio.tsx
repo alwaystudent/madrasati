@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  BookMarked,
   BookOpen,
   Calendar,
   CheckCircle2,
@@ -18,6 +19,7 @@ import { FRENCH_TRAINING_PROGRAMS } from '../data/frenchTrainingData';
 import { GradeLevel, Lesson, TrimesterType } from '../types/curriculum';
 import { speakFrenchText, SpeechSpeed } from '../utils/frenchSpeech';
 import { FrenchSpeakableText } from './FrenchSpeakableText';
+import { FrenchWordGlossaryCorner } from './FrenchWordGlossaryCorner';
 import { ExerciseEngine } from './ExerciseEngine';
 
 interface FrenchTrainingStudioProps {
@@ -33,7 +35,12 @@ interface FrenchTrainingStudioProps {
   ) => void;
 }
 
-type StudioTab = 'vocab' | 'listening' | 'grammar' | 'reading' | 'lessons';
+type StudioTab = 'vocab' | 'listening' | 'grammar' | 'reading' | 'glossary' | 'lessons';
+
+function extractFrenchThemeLabel(theme: string): string {
+  const match = theme.match(/\(([^)]+)\)/);
+  return match ? match[1] : theme;
+}
 
 export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
   selectedGrade,
@@ -57,7 +64,6 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
 
   // Reading comprehension state
   const [selectedPassageId, setSelectedPassageId] = useState<string>('');
-  const [showArabicTranslation, setShowArabicTranslation] = useState(false);
   const [readingAnswers, setReadingAnswers] = useState<Record<string, number>>({});
   const [readingSubmitted, setReadingSubmitted] = useState(false);
 
@@ -164,7 +170,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
     setReadingSubmitted(true);
     const points = score * 20 + 25;
     onRecordFrenchTraining(
-      `القراءة الجهرية: ${activePassage.titleAr}`,
+      `القراءة الجهرية: ${activePassage.titleFr}`,
       score,
       total,
       points
@@ -303,6 +309,18 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('glossary')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'glossary'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <BookMarked className="w-4 h-4 text-rose-600" aria-hidden="true" />
+            فهرس الكلمات
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('lessons')}
             className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'lessons'
@@ -343,14 +361,19 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {theme}
+                  {extractFrenchThemeLabel(theme)}
                 </button>
               ))}
             </div>
 
-            <span className="text-xs text-slate-500">
-              اضغط على الكلمة أو الجملة للاستماع للنطق الفرنسي مباشرة
-            </span>
+            <button
+              type="button"
+              onClick={() => setActiveTab('glossary')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg cursor-pointer"
+            >
+              <BookMarked className="w-3.5 h-3.5" aria-hidden="true" />
+              معاني الكلمات في فهرس الكلمات (A–Z)
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -362,10 +385,11 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
                     <span className="font-semibold text-indigo-700">
-                      {card.trimester ? `${card.trimester} · ` : ''}
-                      {card.theme}
+                      {card.trimester ? `${card.trimester}` : ''}
                     </span>
-                    <span>{card.phonetic}</span>
+                    <span dir="ltr" className="text-slate-500 font-medium">
+                      {extractFrenchThemeLabel(card.theme)}
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
@@ -402,8 +426,6 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                       <Volume2 className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
-
-                  <div className="text-sm font-semibold text-slate-800">{card.arMeaning}</div>
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 space-y-2">
@@ -411,9 +433,8 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     text={card.exampleFr}
                     speed={speed}
                     size="sm"
-                    sentenceButtonLabel="المثال"
+                    sentenceButtonLabel="Exemple"
                   />
-                  <p className="text-xs text-slate-600 leading-relaxed">{card.exampleAr}</p>
                 </div>
               </article>
             ))}
@@ -531,13 +552,13 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
 
               {listenSubmitted && (
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-sm">
-                  <div className="font-bold text-slate-900">النص الكامل للتسجيل:</div>
+                  <div className="font-bold text-slate-900" dir="ltr">Texte audio :</div>
                   <FrenchSpeakableText
                     text={currentListen.audioFr}
                     speed={speed}
-                    sentenceButtonLabel="استمع مجدداً"
+                    sentenceButtonLabel="Réécouter"
                   />
-                  <div className="text-slate-700">{currentListen.explanationAr}</div>
+                  <div className="text-slate-700" dir="ltr">{currentListen.explanationAr}</div>
                 </div>
               )}
 
@@ -591,7 +612,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
         </div>
       )}
 
-      {/* TAB 4: Expressive Guided Reading (All 3 Trimesters Selectable) */}
+      {/* TAB 4: Expressive Guided Reading (French Only — No Arabic Text Translation) */}
       {activeTab === 'reading' && activePassage && (
         <div className="space-y-4">
           {visiblePassages.length > 1 && (
@@ -606,7 +627,6 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                       setSelectedPassageId(pass.id);
                       setReadingAnswers({});
                       setReadingSubmitted(false);
-                      setShowArabicTranslation(false);
                     }}
                     className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${
                       isSelected
@@ -614,7 +634,9 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                         : 'bg-slate-50 text-slate-700 hover:bg-indigo-50'
                     }`}
                   >
-                    {pass.trimester} · {pass.titleAr}
+                    <span>{pass.trimester}</span>
+                    <span className="mx-1.5" aria-hidden="true">·</span>
+                    <span dir="ltr">{pass.titleFr}</span>
                   </button>
                 );
               })}
@@ -626,7 +648,7 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
                 <div>
                   <div className="text-xs font-semibold text-indigo-700">
-                    {activePassage.trimester} · {activePassage.titleAr}
+                    {activePassage.trimester}
                   </div>
                   <h2 dir="ltr" className="text-xl font-bold text-slate-900 mt-0.5">
                     {activePassage.titleFr}
@@ -646,17 +668,17 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowArabicTranslation((v) => !v)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer whitespace-nowrap"
+                    onClick={() => setActiveTab('glossary')}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg cursor-pointer whitespace-nowrap"
                   >
-                    <Languages className="w-4 h-4" aria-hidden="true" />
-                    {showArabicTranslation ? 'إخفاء الترجمة' : 'ترجمة عربية مساعدة'}
+                    <BookMarked className="w-4 h-4" aria-hidden="true" />
+                    فهرس الكلمات
                   </button>
                 </div>
               </div>
 
               <div className="text-xs text-indigo-700 font-medium">
-                اضغط على أي كلمة داخل الفقرة للاستماع إلى نطقها منفردة:
+                اضغط على أي كلمة داخل الفقرة للاستماع إلى نطقها منفردة، أو استعن بفهرس الكلمات لمعرفة معنى كلمة:
               </div>
 
               <div className="space-y-4 p-4 sm:p-5 rounded-xl bg-slate-50 border border-slate-200">
@@ -666,19 +688,10 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
                     text={para}
                     speed={speed}
                     size="lg"
-                    sentenceButtonLabel={`فقرة ${idx + 1}`}
+                    sentenceButtonLabel={`Paragraphe ${idx + 1}`}
                   />
                 ))}
               </div>
-
-              {showArabicTranslation && (
-                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1">
-                  <div className="text-xs font-bold text-amber-900">المعنى العام بالعربية:</div>
-                  <p className="text-sm text-slate-800 leading-relaxed">
-                    {activePassage.translationAr}
-                  </p>
-                </div>
-              )}
             </div>
 
             <aside className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
@@ -771,7 +784,16 @@ export const FrenchTrainingStudio: React.FC<FrenchTrainingStudioProps> = ({
         </div>
       )}
 
-      {/* TAB 5: Integrated Curriculum French Lessons Grouped by Trimester */}
+      {/* TAB 5: Word-Only Alphabetical Glossary (فهرس الكلمات) */}
+      {activeTab === 'glossary' && (
+        <FrenchWordGlossaryCorner
+          selectedGrade={selectedGrade}
+          trimester={selectedTrimester}
+          speed={speed}
+        />
+      )}
+
+      {/* TAB 6: Integrated Curriculum French Lessons Grouped by Trimester */}
       {activeTab === 'lessons' && (
         <div className="space-y-6">
           {TRIMESTERS.map((tri) => {

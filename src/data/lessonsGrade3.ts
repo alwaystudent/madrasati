@@ -520,7 +520,7 @@ export const LESSONS_GRADE_3: Lesson[] = [
     durationMinutes: 4,
     simType: 'french_articles',
     simTitle: 'مختبر أدوات التعريف والتنكير',
-    simDescription: 'اضغط على كل اسم فرنسي وشاهد الأداة المناسبة له مع الترجمة.',
+    simDescription: 'اضغط على كل اسم فرنسي وشاهد الأداة المناسبة له واستمع إلى نطقه.',
     steps: [
       {
         title: 'المذكر والمؤنث النكرة (un / une)',
@@ -537,13 +537,13 @@ export const LESSONS_GRADE_3: Lesson[] = [
       {
         id: 'g3f1-1',
         type: 'fill_blank',
-        prompt: 'اختر الأداة النكرة المناسبة لكلمة «كتاب» بالفرنسية:',
+        prompt: 'اختر الأداة النكرة المناسبة للاسم المذكر «livre»:',
         beforeBlank: 'C’est ',
         afterBlank: ' livre intéressant.',
         choices: ['une', 'un', 'la', 'des'],
         correctChoice: 'un',
         hint: 'كلمة livre اسم مفرد مذكر في الفرنسية.',
-        explanation: 'Bravo! نقول un livre (مذكر).',
+        explanation: 'Bravo! un livre (masculin).',
         ltr: true,
       },
       {
@@ -553,13 +553,13 @@ export const LESSONS_GRADE_3: Lesson[] = [
         binALabel: 'Masculin (un / le)',
         binBLabel: 'Féminin (une / la)',
         items: [
-          { id: 'fr31', label: 'cartable (محفظة)', targetBin: 'A' },
-          { id: 'fr32', label: 'règle (مسطرة)', targetBin: 'B' },
-          { id: 'fr33', label: 'stylo (قلم)', targetBin: 'A' },
-          { id: 'fr34', label: 'gomme (ممحاة)', targetBin: 'B' },
+          { id: 'fr31', label: 'cartable', targetBin: 'A' },
+          { id: 'fr32', label: 'règle', targetBin: 'B' },
+          { id: 'fr33', label: 'stylo', targetBin: 'A' },
+          { id: 'fr34', label: 'gomme', targetBin: 'B' },
         ],
-        hint: 'انتبه: cartable مذكر في الفرنسية (un cartable) رغم أنها مؤنثة في العربية!',
-        explanation: 'Excellent! تذكّر دائماً أن un cartable مذكر بالفرنسية.',
+        hint: 'انتبه: كلمة cartable مذكر في الفرنسية (un cartable)!',
+        explanation: 'Excellent! un cartable (masculin).',
         ltr: true,
       },
       {
@@ -635,7 +635,7 @@ export const LESSONS_GRADE_3: Lesson[] = [
       {
         id: 'g3f2-2',
         type: 'choice',
-        prompt: 'كيف تقول: «أنا تلميذ في السنة الثالثة»؟',
+        prompt: 'اختر الجملة الصحيحة لتقديم نفسك بالفرنسية:',
         options: [
           'Je suis élève en troisième année.',
           'J’ai élève en troisième année.',
@@ -672,7 +672,7 @@ export const LESSONS_GRADE_3: Lesson[] = [
       {
         id: 'g3f2-5',
         type: 'choice',
-        prompt: 'أي جملة صحيحة للتعبير عن الملكية (عندي كلب صغير)؟',
+        prompt: 'أي جملة صحيحة باستعمال الفعل «avoir» للتعبير عن الملكية؟',
         options: [
           'J’ai un petit chien.',
           'Je suis un petit chien.',

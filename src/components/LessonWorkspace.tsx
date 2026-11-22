@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowRight,
+  BookMarked,
   Bot,
   FlaskConical,
   Gamepad2,
@@ -15,6 +16,7 @@ import { SimulationStage } from './simulations/SimulationStage';
 import { ExerciseEngine } from './ExerciseEngine';
 import { LessonTutorChat } from './LessonTutorChat';
 import { FrenchSpeakableText } from './FrenchSpeakableText';
+import { FrenchWordGlossaryCorner } from './FrenchWordGlossaryCorner';
 import { SpeechSpeed } from '../utils/frenchSpeech';
 import { speakArabicText } from '../utils/arabicSpeech';
 
@@ -38,6 +40,7 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
   const [activeTab, setActiveTab] = useState<'lab' | 'exercises' | 'tutor'>('lab');
   const [activeStepIdx, setActiveStepIdx] = useState(0);
   const [speechSpeed, setSpeechSpeed] = useState<SpeechSpeed>('normal');
+  const [showGlossaryCorner, setShowGlossaryCorner] = useState(false);
   const [tutorPrefill, setTutorPrefill] = useState<string | null>(null);
 
   const subject = SUBJECTS[lesson.subjectId];
@@ -173,29 +176,40 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => setSpeechSpeed('normal')}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-md cursor-pointer ${
-                            speechSpeed === 'normal'
-                              ? 'bg-white text-slate-900 shadow-xs'
-                              : 'text-slate-600'
-                          }`}
+                          onClick={() => setShowGlossaryCorner((v) => !v)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg cursor-pointer"
                         >
-                          نطق عادي
+                          <BookMarked className="w-3.5 h-3.5" aria-hidden="true" />
+                          {showGlossaryCorner ? 'إخفاء فهرس الكلمات' : 'فهرس الكلمات'}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setSpeechSpeed('slow')}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-md cursor-pointer ${
-                            speechSpeed === 'slow'
-                              ? 'bg-white text-slate-900 shadow-xs'
-                              : 'text-slate-600'
-                          }`}
-                        >
-                          نطق بطيء للمبتدئين
-                        </button>
+
+                        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setSpeechSpeed('normal')}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md cursor-pointer ${
+                              speechSpeed === 'normal'
+                                ? 'bg-white text-slate-900 shadow-xs'
+                                : 'text-slate-600'
+                            }`}
+                          >
+                            نطق عادي
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSpeechSpeed('slow')}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md cursor-pointer ${
+                              speechSpeed === 'slow'
+                                ? 'bg-white text-slate-900 shadow-xs'
+                                : 'text-slate-600'
+                            }`}
+                          >
+                            نطق بطيء للمبتدئين
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -203,20 +217,27 @@ export const LessonWorkspace: React.FC<LessonWorkspaceProps> = ({
                       {lesson.frenchPhrases.map((phrase, idx) => (
                         <div
                           key={idx}
-                          className="p-4 rounded-xl bg-slate-50/80 border border-slate-200 space-y-2"
+                          className="p-4 rounded-xl bg-slate-50/80 border border-slate-200"
                         >
                           <FrenchSpeakableText
                             text={phrase.fr}
                             speed={speechSpeed}
-                            sentenceButtonLabel="استمع"
+                            sentenceButtonLabel="Écouter"
                           />
-                          <div className="text-sm font-medium text-slate-700">{phrase.ar}</div>
-                          {phrase.phoneticHint && (
-                            <div className="text-xs text-indigo-700">{phrase.phoneticHint}</div>
-                          )}
                         </div>
                       ))}
                     </div>
+
+                    {showGlossaryCorner && (
+                      <div className="pt-2">
+                        <FrenchWordGlossaryCorner
+                          compact
+                          selectedGrade={lesson.grade}
+                          trimester={lesson.trimester}
+                          speed={speechSpeed}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
             </div>

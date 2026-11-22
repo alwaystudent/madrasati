@@ -17,7 +17,7 @@ const CONJUGATIONS: Record<
   }
 > = {
   parler: {
-    label: 'parler (يتكلم)',
+    label: 'parler',
     group: '1er groupe (-er)',
     forms: [
       { stem: 'Je parl', ending: 'e', full: 'Je parle', example: 'Je parle avec mon camarade.', arabic: 'أتكلم مع زميلي.' },
@@ -29,7 +29,7 @@ const CONJUGATIONS: Record<
     ],
   },
   finir: {
-    label: 'finir (يُنهي)',
+    label: 'finir',
     group: '2ème groupe (-ir)',
     forms: [
       { stem: 'Je fin', ending: 'is', full: 'Je finis', example: 'Je finis mon exercice vite.', arabic: 'أُنهي تمريني بسرعة.' },
@@ -41,7 +41,7 @@ const CONJUGATIONS: Record<
     ],
   },
   etre: {
-    label: 'être (يكون)',
+    label: 'être',
     group: 'Auxiliaire essentiel',
     forms: [
       { stem: 'Je ', ending: 'suis', full: 'Je suis', example: 'Je suis élève en 5ème année.', arabic: 'أنا تلميذ في السنة الخامسة.' },
@@ -53,7 +53,7 @@ const CONJUGATIONS: Record<
     ],
   },
   avoir: {
-    label: 'avoir (يملك)',
+    label: 'avoir',
     group: 'Auxiliaire essentiel',
     forms: [
       { stem: 'J’', ending: 'ai', full: 'J’ai', example: 'J’ai un cartable bleu.', arabic: 'لديّ محفظة زرقاء.' },
@@ -190,9 +190,8 @@ export const FrenchVerbLab: React.FC = () => {
             <FrenchSpeakableText
               text={current.example}
               speed={speed}
-              sentenceButtonLabel="استمع للجملة"
+              sentenceButtonLabel="Écouter"
             />
-            <div className="text-sm text-slate-600">{current.arabic}</div>
             <div className="text-xs text-indigo-700">
               تلميح: اضغط على أي كلمة بالفرنسية لسماع نطقها منفردة.
             </div>

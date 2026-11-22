@@ -632,7 +632,7 @@ export const EXTRA_LESSONS_GRADE_6: Lesson[] = [
     steps: [
       {
         title: 'روابط التسلسل والمنطق',
-        instruction: 'نرتّب الأحداث باستعمال: D’abord (أولاً)، Ensuite / Puis (ثم)، Enfin (أخيراً).',
+        instruction: 'نرتّب الأحداث باستعمال: D’abord، Ensuite / Puis، Enfin.',
         takeaway: 'استعمال الروابط يجعل فقرة الإنتاج الكتابي منظمة وتنال أعلى العلامات.',
       },
       {
@@ -655,7 +655,7 @@ export const EXTRA_LESSONS_GRADE_6: Lesson[] = [
         tokens: ['Enfin,', 'Ensuite,', 'D’abord,'],
         correctOrder: ['D’abord,', 'Ensuite,', 'Enfin,'],
         hint: 'البداية ← المنتصف ← النهاية.',
-        explanation: 'Bravo! D’abord (أولاً) ← Ensuite (ثم) ← Enfin (أخيراً).',
+        explanation: 'Bravo! D’abord ← Ensuite ← Enfin.',
         ltr: true,
       },
       {
@@ -666,18 +666,18 @@ export const EXTRA_LESSONS_GRADE_6: Lesson[] = [
         afterBlank: ' il travaille sérieusement.',
         choices: ['parce qu’', 'mais', 'donc', 'ensuite'],
         correctChoice: 'parce qu’',
-        hint: 'نفسّر سبب نجاح عزيز (لأنه...).',
+        hint: 'نفسّر السبب باستعمال رابط التعليل أمام حرف صوتي.',
         explanation: 'Parfait! parce qu’il travaille sérieusement.',
         ltr: true,
       },
       {
         id: 'g6f4-3',
         type: 'choice',
-        prompt: 'ما أداة الربط الدالة على التناقض أو الاستدراك (لكن)؟',
+        prompt: 'ما أداة الربط الدالة على التناقض أو الاستدراك (Opposition)؟',
         options: ['mais', 'et', 'car', 'puis'],
         correctIndex: 0,
-        hint: 'توازي كلمة «لكن» بالعربية.',
-        explanation: 'Très bien! mais تفيد الاستدراك (مثلاً: Il pleut, mais je sors).',
+        hint: 'تُستعمل للربط بين جملتين متقابلتين مثل: Il pleut, mais je sors.',
+        explanation: 'Très bien! mais تفيد الاستدراك.',
         ltr: true,
       },
       {
@@ -688,7 +688,7 @@ export const EXTRA_LESSONS_GRADE_6: Lesson[] = [
         afterBlank: ' la terre est toute mouillée.',
         choices: ['donc', 'car', 'parce que', 'cependant'],
         correctChoice: 'donc',
-        hint: 'تُعبّر الجملة الثانية عن النتيجة (لذلك...).',
+        hint: 'تُعبّر الجملة الثانية عن النتيجة (Conséquence).',
         explanation: 'Excellent! donc تعبّر عن النتيجة.',
         ltr: true,
       },

@@ -1,8 +1,14 @@
 import { registerSW } from 'virtual:pwa-register';
 import { LESSONS } from '../data/tunisianCurriculum';
 
-export const CORE_LESSON_CACHE_NAME = 'aziz-academy-core-lessons-v1';
-export const CORE_MEDIA_CACHE_NAME = 'aziz-academy-media-cache';
+export const CORE_LESSON_CACHE_NAME = 'aziz-academy-core-lessons-v2';
+export const CORE_MEDIA_CACHE_NAME = 'aziz-academy-media-v2';
+export const LESSONS_RUNTIME_CACHE_NAME = 'aziz-academy-lessons-v2';
+const LEGACY_CACHE_NAMES = [
+  'aziz-academy-lessons-cache',
+  'aziz-academy-core-lessons-v1',
+  'aziz-academy-media-cache',
+];
 export const LESSONS_SNAPSHOT_URL = '/offline-lessons-snapshot.json';
 const CACHE_TIMESTAMP_KEY = 'aziz_offline_cache_updated_at';
 
@@ -41,18 +47,49 @@ export interface OfflineCacheSummary {
 let swUpdateFn: ((reloadPage?: boolean) => Promise<void>) | null = null;
 let swRegistered = false;
 
+async function cleanupLegacyDevCaches(): Promise<void> {
+  if (typeof window === 'undefined' || !('caches' in window)) {
+    return;
+  }
+  try {
+    await Promise.all(LEGACY_CACHE_NAMES.map((name) => window.caches.delete(name)));
+  } catch {
+    // Non-fatal
+  }
+}
+
 export function registerAppServiceWorker(): void {
   if (typeof window === 'undefined' || swRegistered) {
     return;
   }
 
+  swRegistered = true;
+  void cleanupLegacyDevCaches();
+
   if (!('serviceWorker' in navigator)) {
     return;
   }
 
-  swRegistered = true;
+  if (import.meta.env.DEV) {
+    void navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) =>
+        Promise.all(registrations.map((reg) => reg.unregister()))
+      )
+      .catch(() => {
+        // Non-fatal
+      });
+    return;
+  }
 
   try {
+    void navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((reg) => reg.update())))
+      .catch(() => {
+        // Ignore SW update check failures
+      });
+
     swUpdateFn = registerSW({
       immediate: true,
       onNeedRefresh() {
@@ -109,7 +146,7 @@ export async function getOfflineCacheSummary(): Promise<OfflineCacheSummary> {
 
       if (
         cacheName === CORE_LESSON_CACHE_NAME ||
-        cacheName === 'aziz-academy-lessons-cache'
+        cacheName === LESSONS_RUNTIME_CACHE_NAME
       ) {
         coreLessonEntries += keys.length;
       }

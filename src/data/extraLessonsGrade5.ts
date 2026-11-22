@@ -490,7 +490,7 @@ export const EXTRA_LESSONS_GRADE_5: Lesson[] = [
           { id: 'tf53', label: 'La semaine dernière, il a neigé.', targetBin: 'A' },
           { id: 'tf54', label: 'Bientôt, tu parleras très bien.', targetBin: 'B' },
         ],
-        hint: 'Hier / dernière = ماضي، Demain / bientôt = مستقبل.',
+        hint: 'المؤشرات Hier / dernière للماضي، و Demain / bientôt للمستقبل.',
         explanation: 'Parfait! تعرف زمن الجملة من المؤشر الزمني والفعل.',
         ltr: true,
       },
@@ -537,7 +537,7 @@ export const EXTRA_LESSONS_GRADE_5: Lesson[] = [
       },
       {
         title: 'أدوات الملكية: notre / votre / leur',
-        instruction: 'notre = ملكنا (مفرد)، nos = ملكنا (جمع)، leur = ملكهم (مفرد).',
+        instruction: 'نستعمل notre و leur أمام المفرد، و nos و leurs أمام الجمع.',
         takeaway: 'Notre école est propre · Nos cahiers sont bien rangés.',
       },
     ],
@@ -589,7 +589,7 @@ export const EXTRA_LESSONS_GRADE_5: Lesson[] = [
       {
         id: 'g5f3-4',
         type: 'fill_blank',
-        prompt: 'أكمل بأداة الملكية المناسبة للجمع (كتبنا):',
+        prompt: 'أكمل بأداة الملكية المناسبة للاسم الجمع مع الضمير Nous:',
         beforeBlank: 'Nous rangeons ',
         afterBlank: ' livres dans la bibliothèque.',
         choices: ['notre', 'nos', 'leur', 'ma'],
@@ -601,7 +601,7 @@ export const EXTRA_LESSONS_GRADE_5: Lesson[] = [
       {
         id: 'g5f3-5',
         type: 'order',
-        prompt: 'رتّب الكلمات لتكوين جملة تصف حديقة:',
+        prompt: 'رتّب الكلمات لتكوين جملة فرنسية صحيحة:',
         tokens: ['est', 'Ce', 'fleuri.', 'jardin', 'très'],
         correctOrder: ['Ce', 'jardin', 'est', 'très', 'fleuri.'],
         hint: 'ابدأ بـ Ce jardin.',

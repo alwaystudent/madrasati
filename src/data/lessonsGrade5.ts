@@ -697,7 +697,7 @@ export const LESSONS_GRADE_5: Lesson[] = [
         afterBlank: ' très heureux de réussir.',
         choices: ['ont', 'sont', 'est', 'avons'],
         correctChoice: 'sont',
-        hint: 'heureux صفة، ومع الصفات نستعمل فعل être (هم يكونون = sont).',
+        hint: 'heureux صفة، ومع الصفات نستعمل فعل être مع الفاعل الجمع ← sont.',
         explanation: 'Parfait! Les élèves sont très heureux.',
         ltr: true,
       },

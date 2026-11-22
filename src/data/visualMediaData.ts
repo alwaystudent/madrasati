@@ -491,7 +491,7 @@ export const VISUAL_MODULES: VisualLessonModule[] = [
         title: '4. تطبيق في جملة حقيقية',
         caption: 'Nous aimons notre école et vous chantez ensemble !',
         narration:
-          'مثال جميل: نو زيمون نوتر إيكول، أي نحن نحب مدرستنا كثيراً.',
+          'مثال جميل: Nous aimons notre école et vous chantez ensemble !',
         durationSec: 6,
       },
     ],

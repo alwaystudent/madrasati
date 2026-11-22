@@ -48,7 +48,23 @@ export class ErrorBoundary extends React.Component<
             <p className="text-sm text-slate-600 leading-relaxed">{this.state.message}</p>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                void (async () => {
+                  try {
+                    if ('caches' in window) {
+                      const keys = await window.caches.keys();
+                      await Promise.all(keys.map((k) => window.caches.delete(k)));
+                    }
+                    if ('serviceWorker' in navigator) {
+                      const regs = await navigator.serviceWorker.getRegistrations();
+                      await Promise.all(regs.map((r) => r.unregister()));
+                    }
+                  } catch {
+                    // ignore cleanup failures
+                  }
+                  window.location.reload();
+                })();
+              }}
               className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" aria-hidden="true" />

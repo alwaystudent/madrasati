@@ -525,7 +525,7 @@ export const EXTRA_LESSONS_GRADE_4: Lesson[] = [
       },
       {
         title: 'أفعال شائعة: Aller و Faire',
-        instruction: 'Je vais (أنا أذهب)، Tu vas، Il va، Nous allons · Je fais (أنا أفعل)، Nous faisons.',
+        instruction: 'Je vais, tu vas, il va, nous allons · Je fais, tu fais, il fait, nous faisons.',
         takeaway: 'نستعمل aller للمكان (Je vais à l’école) و faire للنشاط (Je fais mes devoirs).',
       },
     ],
@@ -551,7 +551,7 @@ export const EXTRA_LESSONS_GRADE_4: Lesson[] = [
       {
         id: 'g4f3-2',
         type: 'choice',
-        prompt: 'اختر التصريف الصحيح لفعل «aller» (يذهب) مع الضمير «Je»:',
+        prompt: 'اختر التصريف الصحيح لفعل «aller» مع الضمير «Je»:',
         options: ['Je vais au parc.', 'Je vas au parc.', 'Je va au parc.', 'Je allons au parc.'],
         correctIndex: 0,
         hint: 'مع Je يصبح فعل aller: Je vais.',
@@ -583,7 +583,7 @@ export const EXTRA_LESSONS_GRADE_4: Lesson[] = [
       {
         id: 'g4f3-5',
         type: 'choice',
-        prompt: 'أي نهاية تناسب «Vous» مع فعل réussir (ينجح)؟',
+        prompt: 'أي نهاية تناسب «Vous» مع فعل réussir؟',
         options: ['Vous réussissez', 'Vous réussissons', 'Vous réussit', 'Vous réussis'],
         correctIndex: 0,
         hint: 'المجموعة الثانية مع Vous تأخذ -issez.',
